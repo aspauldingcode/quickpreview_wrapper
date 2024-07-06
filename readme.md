@@ -1,23 +1,43 @@
 # Quickpreview Wrapper
 
-## Description:
-This project aims to create a wrapper around quickpeview tools with a universal cli tool for macOS, Linux, Windows.
+## Description
+A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows, implemented in Rust with Nix for dependency management.
 
-### Languages:
-C
+## Key Features
+- Cross-platform support (macOS, Linux, Windows)
+- Fullscreen mode (with -f cli flag)
+- Multi-file navigation with arrow keys (linux)
 
-### Dependencies
-macOS: uses Finder's quickview tool
-Linux: uses gnome's Sushi preview tool
-Windows: uses Powertool's Quicklook tool
+## Dependencies
+- macOS: Native Quicklook
+- Linux: Sushi (GNOME)
+- Windows: Quicklook
 
-## installation / packaging 
-tbd
+## Quick Start
+1. Install Nix: https://nixos.org/download.html
+2. Clone and build:
+   ```sh
+   git clone <repository-url>
+   cd quickpreview_wrapper
+   nix-shell
+   cargo build --release
+   ```
+3. Run:
+   ```sh
+   ./target/release/quickpreview_wrapper [-f] <file_path1> [file_path2] ...
+   ```
 
-## How to compile:
-Simple! 
-Use the included Makefile with `make` command.
+## Usage
+- Right/Left arrows: Navigate files
+- Esc: Exit preview
 
-## Support: 
-idk yet
+## Development
+Enter dev environment: `nix-shell`
 
+## Building with Nix
+Run: `nix-build`
+
+## License
+GNU General Public License v3.0
+
+Note: This license applies only to the Quickpreview Wrapper, not to the underlying preview tools it interacts with.

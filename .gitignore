@@ -10,5 +10,58 @@
 *.pyc
 *.pyo
 *.pyd
+
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# C
+*.o
+*.a
+*.so
+*.dylib
+
+# Nix
+result
+result-*
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Build output
+/build/
+/dist/
+
+# Dependencies
+/node_modules/
+/.cargo/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+
+# Ignore Rust documentation
+/doc/
+
+# Ignore Cargo's registry cache
+.cargo/registry/
+
+# Ignore Nix-specific files
+*.nix-build-result
+
+# Ignore Rust target directory
+/target/
+
 # Ignore the "openfile" program
 openfile

@@ -1,6 +1,6 @@
 #ifndef openfile_h
 #define openfile_h
 
-void openFile(const char *filePath);
+void openFiles(int num_files, const char **filePaths, int fullscreen);
 
 #endif /* openfile_h */

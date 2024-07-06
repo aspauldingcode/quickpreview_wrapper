@@ -10,8 +10,17 @@ pkgs.rustPlatform.buildRustPackage rec {
     lockFile = ./Cargo.lock;
   };
 
-  nativeBuildInputs = with pkgs; [ pkg-config ];
-  buildInputs = with pkgs; [ xorg.libX11 ];
+  nativeBuildInputs = with pkgs; [ pkg-config ]
+    ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+      pkgs.darwin.apple_sdk.frameworks.Cocoa
+      pkgs.darwin.apple_sdk.frameworks.Quartz
+    ];
+
+  buildInputs = with pkgs; [ ]
+    ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ xorg.libX11 ];
+
+  NIX_LDFLAGS = pkgs.lib.optionalString pkgs.stdenv.isDarwin
+    "-framework Cocoa -framework Quartz";
 
   meta = with pkgs.lib; {
     description = "A wrapper for quickpreview tools";

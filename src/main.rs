@@ -1,6 +1,5 @@
 use clap::{App, Arg};
 use rdev::{listen, EventType, Key};
-use std::process::Command;
 use std::sync::mpsc;
 use std::thread;
 
@@ -35,6 +34,9 @@ fn main() {
         return;
     }
 
+    open_preview(&files, fullscreen);
+
+    // Keep the main thread alive to allow the preview to stay open
     let (tx, rx) = mpsc::channel();
 
     thread::spawn(move || {
@@ -47,38 +49,28 @@ fn main() {
         }
     });
 
-    let mut current_file = 0;
-    open_preview(&files[current_file], fullscreen);
-
     for event in rx {
-        match event.event_type {
-            EventType::KeyPress(Key::RightArrow) => {
-                current_file = (current_file + 1) % files.len();
-                open_preview(&files[current_file], fullscreen);
-            }
-            EventType::KeyPress(Key::LeftArrow) => {
-                current_file = (current_file + files.len() - 1) % files.len();
-                open_preview(&files[current_file], fullscreen);
-            }
-            EventType::KeyPress(Key::Escape) => {
-                break;
-            }
-            _ => {}
+        if let EventType::KeyPress(Key::Escape) = event.event_type {
+            break;
         }
     }
 }
 
 #[cfg(target_os = "linux")]
-fn open_preview(filename: &str, fullscreen: bool) {
-    linux::open_sushi(filename, fullscreen);
+fn open_preview(files: &[String], fullscreen: bool) {
+    for file in files {
+        linux::open_sushi(file, fullscreen);
+    }
 }
 
 #[cfg(target_os = "macos")]
-fn open_preview(filename: &str, fullscreen: bool) {
-    macos::open_quicklook(filename, fullscreen);
+fn open_preview(files: &[String], fullscreen: bool) {
+    macos::open_quicklook(files, fullscreen);
 }
 
 #[cfg(target_os = "windows")]
-fn open_preview(filename: &str, fullscreen: bool) {
-    windows::open_quicklook(filename, fullscreen);
+fn open_preview(files: &[String], fullscreen: bool) {
+    for file in files {
+        windows::open_quicklook(file, fullscreen);
+    }
 }

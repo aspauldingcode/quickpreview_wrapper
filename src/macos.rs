@@ -1,24 +1,43 @@
-use cocoa::appkit::{NSApp, NSApplication};
-use cocoa::base::{id, nil, YES};
-use cocoa::foundation::{NSAutoreleasePool, NSString};
-use objc::{class, msg_send, sel, sel_impl};
+use std::ffi::CString;
+use std::os::raw::{c_char, c_int};
+use std::process;
 
-pub fn open_quicklook(filename: &str, fullscreen: bool) {
-    unsafe {
-        let pool = NSAutoreleasePool::new(nil);
-
-        let app = NSApp();
-        app.setActivationPolicy_(cocoa::appkit::NSApplicationActivationPolicyRegular);
-
-        let url = NSString::alloc(nil).init_str(filename);
-        let workspace: id = msg_send![class!(NSWorkspace), sharedWorkspace];
-        let _: () = msg_send![workspace, openFile:url];
-
-        if fullscreen {
-            let _: () = msg_send![app, toggleFullScreen:nil];
-        }
-
-        app.run();
-        pool.drain();
-    }
+#[link(name = "macos", kind = "dylib")]
+extern "C" {
+    fn openFiles(argc: c_int, argv: *const *const c_char, fullscreen: c_int) -> c_int;
 }
+
+pub fn open_quicklook(files: &[String], fullscreen: bool) {
+    let c_args: Vec<CString> = files
+        .iter()
+        .map(|file| CString::new(file.as_str()).unwrap())
+        .collect();
+
+    let c_arg_ptrs: Vec<*const c_char> = c_args
+        .iter()
+        .map(|arg| arg.as_ptr())
+        .collect();
+
+    let result = unsafe {
+        openFiles(
+            c_arg_ptrs.len() as c_int,
+            c_arg_ptrs.as_ptr(),
+            if fullscreen { 1 } else { 0 },
+        )
+    };
+
+    if result != 0 {
+        eprintln!("Error opening QuickLook preview");
+        process::exit(1);
+    }
+
+    // Wait for the user to close QuickLook
+    println!("Press Enter to exit...");
+    let mut input = String::new();
+    std::io::stdin().read_line(&mut input).unwrap();
+
+    process::exit(0);
+}
+
+
+

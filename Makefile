@@ -6,7 +6,7 @@ PROGRAM = openfile
 
 all: clean $(PROGRAM)
 
-$(PROGRAM): openfile.m
+$(PROGRAM): main.c openfile.c openfile_macOS.m openfile_windows.c openfile_linux.c
 	$(CC) $(CFLAGS) -o $@ $<
 
 clean:

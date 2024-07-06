@@ -1,3 +1,4 @@
+#ifdef __APPLE__
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 #import <Quartz/Quartz.h>
@@ -69,3 +70,4 @@ int main(int argc, const char * argv[]) {
     }
     return 0;
 }
+#endif

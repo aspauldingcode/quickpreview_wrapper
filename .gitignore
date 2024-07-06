@@ -1,0 +1,15 @@
+# Ignore prebuilt binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+*.o
+*.obj
+*.class
+*.pyc
+*.pyo
+*.pyd
+# Ignore the "openfile" program
+openfile
+

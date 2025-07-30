@@ -11,7 +11,7 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
 ## Dependencies
 - macOS: Native Quicklook
 - Linux: Sushi (GNOME)
-- Windows: Quicklook
+- Windows: QuickLook (install via `winget install --id=QL-Win.QuickLook --exact` or from https://github.com/QL-Win/QuickLook)
 
 ## Quick Start
 1. Install Nix: https://nixos.org/download.html

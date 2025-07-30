@@ -12,6 +12,9 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
 - macOS: Native Quicklook
 - Linux: Sushi (GNOME)
 - Windows: QuickLook (install via `winget install --id=QL-Win.QuickLook --exact` or from https://github.com/QL-Win/QuickLook)
+  - Rust: Install via `winget install --id Rustlang.Rustup -e`
+  - Visual Studio Build Tools: Install via `winget install --id Microsoft.VisualStudio.2022.BuildTools -e` (select C++ build tools during installation) or download from https://visualstudio.microsoft.com/downloads/
+  - After installing Rust, run `rustup toolchain install stable-msvc`
 
 ## Quick Start
 1. Install Nix: https://nixos.org/download.html
@@ -24,7 +27,7 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
    ```
 3. Run:
    ```sh
-   ./target/release/quickpreview_wrapper [-f] <file_path1> [file_path2] ...
+   cargo run -- [-f] <file_path1> [file_path2] ...
    ```
 
 ## Usage

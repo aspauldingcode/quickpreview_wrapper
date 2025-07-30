@@ -16,6 +16,9 @@ cocoa = "0.24"
 core-foundation = "0.9"
 objc_id = "0.1"
 
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "securitybaseapi", "handleapi", "fileapi", "errhandlingapi", "winbase", "winnt", "minwindef", "ntdef", "winerror"] }
+
 [build-dependencies]
 cc = "1.0"
 

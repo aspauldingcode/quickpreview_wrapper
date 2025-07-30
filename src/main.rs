@@ -71,6 +71,8 @@ fn open_preview(files: &[String], fullscreen: bool) {
 #[cfg(target_os = "windows")]
 fn open_preview(files: &[String], fullscreen: bool) {
     for file in files {
-        windows::open_quicklook(file, fullscreen);
+        if let Err(e) = windows::open_quicklook(file, fullscreen) {
+            eprintln!("Error opening QuickLook for {}: {}", file, e);
+        }
     }
 }

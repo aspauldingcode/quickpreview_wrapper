@@ -12,11 +12,35 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
 - macOS: Native Quicklook
 - Linux: Sushi (GNOME)
 - Windows: QuickLook (install via `winget install --id=QL-Win.QuickLook --exact` or from https://github.com/QL-Win/QuickLook)
-  - Rust: Install via `winget install --id Rustlang.Rustup -e`
+  - **Rust**: Install via `winget install --id Rustlang.Rustup -e`
   - **Visual Studio Build Tools** (Required for linking): 
-    - Install via: `winget install --id Microsoft.VisualStudio.2022.BuildTools -e`
-    - **Important**: During installation, make sure to select "C++ build tools" workload
-    - Alternative: Install Visual Studio Community and select "Desktop development with C++" workload
+    ```bash
+    winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet"
+    ```
+  - **Configure Rust toolchain**:
+    ```bash
+    rustup default stable-x86_64-pc-windows-msvc
+    rustup component add rust-src
+    ```
+  - **If you get "link.exe not found" error**:
+    1. **Find your link.exe path**:
+       ```bash
+       where.exe link
+       ```
+       If not found, look in: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64\`
+    
+    2. **Add to PATH** (run PowerShell as Administrator):
+       ```powershell
+       [System.Environment]::SetEnvironmentVariable("PATH", "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64;" + $env:PATH, "Machine")
+       ```
+       Replace `<version>` with your actual version folder (e.g., `14.38.33135`)
+    
+    3. **Restart your terminal** and verify:
+       ```bash
+       link /?
+       ```
+    
+    4. **Alternative**: Use "Developer Command Prompt for VS 2022" which has the PATH pre-configured
   - After installing Rust and Build Tools, run:
     ```
     rustup toolchain install stable-msvc

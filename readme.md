@@ -17,21 +17,41 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
     ```bash
     winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet"
     ```
-  - **Configure Rust toolchain**:
+  - **Configure Rust toolchain** (choose based on your Windows architecture):
+    
+    **For x64 Windows:**
     ```bash
+    rustup toolchain install stable-x86_64-pc-windows-msvc
     rustup default stable-x86_64-pc-windows-msvc
-    rustup component add rust-src
     ```
+    
+    **For ARM64 Windows:**
+    ```bash
+    rustup toolchain install stable-aarch64-pc-windows-msvc
+    rustup default stable-aarch64-pc-windows-msvc
+    ```
+    
+    **Check your architecture:**
+    ```powershell
+    echo $env:PROCESSOR_ARCHITECTURE
+    ```
+    
   - **If you get "link.exe not found" error**:
-    1. **Find your link.exe path**:
+    1. **Find your link.exe path** (architecture-specific):
        ```bash
        where.exe link
        ```
-       If not found, look in: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64\`
+       Common paths:
+       - **x64**: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64\`
+       - **ARM64**: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostarm64\arm64\`
     
-    2. **Add to PATH** (run PowerShell as Administrator):
+    2. **Add to PATH** (run PowerShell as Administrator, replace path based on your architecture):
        ```powershell
+       # For x64:
        [System.Environment]::SetEnvironmentVariable("PATH", "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64;" + $env:PATH, "Machine")
+       
+       # For ARM64:
+       [System.Environment]::SetEnvironmentVariable("PATH", "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostarm64\arm64;" + $env:PATH, "Machine")
        ```
        Replace `<version>` with your actual version folder (e.g., `14.38.33135`)
     

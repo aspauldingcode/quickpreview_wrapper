@@ -13,8 +13,19 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
 - Linux: Sushi (GNOME)
 - Windows: QuickLook (install via `winget install --id=QL-Win.QuickLook --exact` or from https://github.com/QL-Win/QuickLook)
   - Rust: Install via `winget install --id Rustlang.Rustup -e`
-  - Visual Studio Build Tools: Install via `winget install --id Microsoft.VisualStudio.2022.BuildTools -e` (select C++ build tools during installation) or download from https://visualstudio.microsoft.com/downloads/
-  - After installing Rust, run `rustup toolchain install stable-msvc`
+  - **Visual Studio Build Tools** (Required for linking): 
+    - Install via: `winget install --id Microsoft.VisualStudio.2022.BuildTools -e`
+    - **Important**: During installation, make sure to select "C++ build tools" workload
+    - Alternative: Install Visual Studio Community and select "Desktop development with C++" workload
+  - After installing Rust and Build Tools, run:
+    ```
+    rustup toolchain install stable-msvc
+    rustup default stable-msvc
+    ```
+  - **Troubleshooting**: If you still get "link.exe not found" error:
+    - Restart your terminal/PowerShell after installing Build Tools
+    - Run the build from "Developer Command Prompt for VS 2022" or "Developer PowerShell for VS 2022"
+    - Verify installation: `where link.exe` should show the linker path
 
 ## Quick Start
 1. Install Nix: https://nixos.org/download.html

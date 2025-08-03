@@ -20,7 +20,7 @@ objc_id = "0.1"
 winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "securitybaseapi", "handleapi", "fileapi", "errhandlingapi", "winbase", "winnt", "minwindef", "ntdef", "winerror"] }
 
 [build-dependencies]
-cc = "1.0"
+cc = { version = "1.0", features = ["parallel"] }
 
 [package.metadata.macos]
 frameworks = ["Cocoa", "Quartz"]

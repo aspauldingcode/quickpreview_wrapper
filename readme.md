@@ -45,22 +45,38 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
        - **x64**: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64\`
        - **ARM64**: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostarm64\arm64\`
     
-    2. **Add to PATH** (run PowerShell as Administrator, replace path based on your architecture):
-       ```powershell
-       # For x64:
-       [System.Environment]::SetEnvironmentVariable("PATH", "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64;" + $env:PATH, "Machine")
+    2. **Add to PATH** (choose one method):
        
-       # For ARM64:
-       [System.Environment]::SetEnvironmentVariable("PATH", "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostarm64\arm64;" + $env:PATH, "Machine")
+       **Method 1 - GUI (Recommended):**
+       - Press `Win + R`, type `sysdm.cpl`, press Enter
+       - Click "Environment Variables"
+       - Under "System Variables", select "Path" and click "Edit"
+       - Click "New" and add your linker path (e.g., `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.38.33135\bin\Hostarm64\arm64\`)
+       - Click OK on all dialogs
+       
+       **Method 2 - PowerShell (Run as Administrator):**
+       ```powershell
+       # Get current PATH
+       $currentPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
+       
+       # Add your linker path (replace with your actual path)
+       $newPath = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.38.33135\bin\Hostarm64\arm64"
+       
+       # Set new PATH
+       [Environment]::SetEnvironmentVariable("PATH", $newPath + ";" + $currentPath, "Machine")
        ```
-       Replace `<version>` with your actual version folder (e.g., `14.38.33135`)
+       
+       **Method 3 - Command Prompt (Run as Administrator):**
+       ```cmd
+       setx PATH "%PATH%;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.38.33135\bin\Hostarm64\arm64" /M
+       ```
     
-    3. **Restart your terminal** and verify:
+    3. **Restart your terminal completely** and verify:
        ```bash
        link /?
        ```
     
-    4. **Alternative**: Use "Developer Command Prompt for VS 2022" which has the PATH pre-configured
+    4. **Alternative**: Use "Developer Command Prompt for VS 2022" or "Developer PowerShell for VS 2022" which have the PATH pre-configured
   - After installing Rust and Build Tools, run:
     ```
     rustup toolchain install stable-msvc

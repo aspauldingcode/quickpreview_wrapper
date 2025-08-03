@@ -146,6 +146,10 @@ pub fn setup_msvc_env() {
     let mut found_toolchain = false;
     let mut found_sdk = false;
     
+    // Get target architecture for proper toolchain selection
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| "x86_64".to_string());
+    println!("cargo:warning=Setting up MSVC for target architecture: {}", target_arch);
+    
     // Set up MSVC toolchain
     if let Some(toolchain_path) = find_msvc_toolchain() {
         println!("cargo:warning=Found MSVC toolchain at: {}", toolchain_path.display());
@@ -155,6 +159,7 @@ pub fn setup_msvc_env() {
         if let Ok(current_path) = env::var("PATH") {
             let new_path = format!("{};{}", toolchain_path.display(), current_path);
             env::set_var("PATH", new_path);
+            println!("cargo:warning=Updated PATH with MSVC toolchain");
         }
         
         // Set additional environment variables that cc-rs might use
@@ -163,9 +168,18 @@ pub fn setup_msvc_env() {
                 if let Some(parent) = parent.parent() {
                     if let Some(parent) = parent.parent() {
                         env::set_var("VCINSTALLDIR", parent);
+                        println!("cargo:warning=Set VCINSTALLDIR to: {}", parent.display());
                     }
                 }
             }
+        }
+        
+        // Set CC and CXX environment variables to help cc-rs
+        let cl_exe = toolchain_path.join("cl.exe");
+        if cl_exe.exists() {
+            env::set_var("CC", cl_exe.to_string_lossy().to_string());
+            env::set_var("CXX", cl_exe.to_string_lossy().to_string());
+            println!("cargo:warning=Set CC and CXX to: {}", cl_exe.display());
         }
     }
     
@@ -175,7 +189,6 @@ pub fn setup_msvc_env() {
         found_sdk = true;
         
         // Set up LIB environment variable for different architectures
-        let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| "x86_64".to_string());
         let lib_arch = match target_arch.as_str() {
             "x86_64" => "x64",
             "x86" => "x86",
@@ -186,16 +199,26 @@ pub fn setup_msvc_env() {
         let sdk_lib_arch_path = sdk_lib_path.join("um").join(lib_arch);
         let sdk_ucrt_path = sdk_lib_path.join("ucrt").join(lib_arch);
         
-        if let Ok(current_lib) = env::var("LIB") {
-            let new_lib = format!("{};{};{}", sdk_lib_arch_path.display(), sdk_ucrt_path.display(), current_lib);
-            env::set_var("LIB", new_lib);
-        } else {
-            let new_lib = format!("{};{}", sdk_lib_arch_path.display(), sdk_ucrt_path.display());
-            env::set_var("LIB", new_lib);
+        // Also add MSVC runtime libraries
+        if let Some(toolchain_path) = find_msvc_toolchain() {
+            if let Some(msvc_lib_path) = find_msvc_lib_path(&toolchain_path, lib_arch) {
+                if let Ok(current_lib) = env::var("LIB") {
+                    let new_lib = format!("{};{};{};{}", 
+                        msvc_lib_path.display(),
+                        sdk_lib_arch_path.display(), 
+                        sdk_ucrt_path.display(), 
+                        current_lib);
+                    env::set_var("LIB", new_lib);
+                } else {
+                    let new_lib = format!("{};{};{}", 
+                        msvc_lib_path.display(),
+                        sdk_lib_arch_path.display(), 
+                        sdk_ucrt_path.display());
+                    env::set_var("LIB", new_lib);
+                }
+                println!("cargo:warning=Set LIB path with MSVC runtime for {} architecture", lib_arch);
+            }
         }
-        
-        println!("cargo:warning=Set LIB path for {} architecture: {}", lib_arch, sdk_lib_arch_path.display());
-        println!("cargo:warning=Set UCRT path: {}", sdk_ucrt_path.display());
     }
     
     if !found_toolchain || !found_sdk {
@@ -210,6 +233,22 @@ pub fn setup_msvc_env() {
         // Try to provide more specific guidance
         check_common_issues();
     }
+}
+
+/// Find MSVC library path for the given architecture
+fn find_msvc_lib_path(toolchain_path: &PathBuf, lib_arch: &str) -> Option<PathBuf> {
+    // Go up from bin/HostXXX/YYY to Tools/MSVC/version/lib/arch
+    if let Some(host_dir) = toolchain_path.parent() {
+        if let Some(bin_dir) = host_dir.parent() {
+            if let Some(version_dir) = bin_dir.parent() {
+                let lib_path = version_dir.join("lib").join(lib_arch);
+                if lib_path.exists() {
+                    return Some(lib_path);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// Check for common installation issues and provide guidance

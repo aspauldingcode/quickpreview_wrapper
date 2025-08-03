@@ -1,35 +1,72 @@
 use std::env;
 
+mod build_helper;
+
 fn main() {
-    println!("cargo:warning=Target OS: {}", env::var("CARGO_CFG_TARGET_OS").unwrap_or_else(|_| "unknown".to_string()));
-    
-    #[cfg(target_os = "macos")]
-    {
-        cc::Build::new()
-            .file("macos/macos.m")
-            .compile("macos");
-        
-        println!("cargo:rustc-link-lib=framework=Cocoa");
-        println!("cargo:rustc-link-lib=framework=Quartz");
-    }
-    
+    // Set up MSVC environment early for Windows builds (including ARM64)
+    // This must happen before any dependencies compile
     #[cfg(windows)]
     {
-        // Let cc-rs handle MSVC detection naturally
-        let mut build = cc::Build::new();
-        build.file("windows/openfile_windows.c");
+        println!("cargo:warning=Setting up MSVC environment for Windows build");
+        build_helper::setup_msvc_env();
         
-        // Enable verbose output for debugging
-        if env::var("CARGO_BUILD_VERBOSE").is_ok() {
-            build.flag_if_supported("-v");
+        // Also set environment variables that will be inherited by dependency builds
+        if let Ok(path) = std::env::var("PATH") {
+            println!("cargo:rustc-env=PATH={}", path);
         }
-        
-        // Trust cc-rs to find the toolchain - it should work since you added it to PATH
-        build.compile("openfile_windows");
-        
-        // Link against Windows libraries
-        println!("cargo:rustc-link-lib=user32");
-        println!("cargo:rustc-link-lib=shell32");
-        println!("cargo:rustc-link-lib=ole32");
+        if let Ok(lib) = std::env::var("LIB") {
+            println!("cargo:rustc-env=LIB={}", lib);
+        }
+        if let Ok(vcinstalldir) = std::env::var("VCINSTALLDIR") {
+            println!("cargo:rustc-env=VCINSTALLDIR={}", vcinstalldir);
+        }
+        if let Ok(cc) = std::env::var("CC") {
+            println!("cargo:rustc-env=CC={}", cc);
+        }
+        if let Ok(cxx) = std::env::var("CXX") {
+            println!("cargo:rustc-env=CXX={}", cxx);
+        }
     }
+
+    // Build the C++ wrapper
+    let mut build = cc::Build::new();
+    
+    build
+        .cpp(true)
+        .file("src/quickpreview_wrapper.cpp")
+        .include("src")
+        .flag_if_supported("-std=c++17");
+
+    // Platform-specific configurations
+    #[cfg(target_os = "macos")]
+    {
+        build
+            .flag("-framework")
+            .flag("QuickLook")
+            .flag("-framework")
+            .flag("Foundation")
+            .flag("-framework")
+            .flag("CoreFoundation")
+            .flag("-framework")
+            .flag("AppKit");
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        // Windows-specific flags can be added here if needed
+        println!("cargo:warning=Compiling for Windows");
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux-specific configurations can be added here
+        println!("cargo:warning=Compiling for Linux");
+    }
+
+    build.compile("quickpreview_wrapper");
+
+    println!("cargo:rerun-if-changed=src/quickpreview_wrapper.cpp");
+    println!("cargo:rerun-if-changed=src/quickpreview_wrapper.h");
+    println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=build_helper.rs");
 }

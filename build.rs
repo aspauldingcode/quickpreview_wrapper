@@ -5,6 +5,11 @@ mod build_helper;
 fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
 
+    // Always set up MSVC environment on Windows, even for dependencies
+    if cfg!(windows) || target_os == "windows" {
+        build_helper::setup_msvc_env();
+    }
+
     if target_os == "macos" {
         let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -19,9 +24,6 @@ fn main() {
         println!("cargo:rustc-link-framework=Quartz");
         println!("cargo:rerun-if-changed=macos/macos.m");
     } else if target_os == "windows" {
-        // Set up MSVC environment before attempting compilation
-        build_helper::setup_msvc_env();
-        
         // Configure cc to find MSVC toolchain properly
         let mut build = cc::Build::new();
         

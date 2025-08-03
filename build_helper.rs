@@ -115,5 +115,45 @@ pub fn setup_msvc_env() {
     } else {
         println!("cargo:warning=Could not find MSVC toolchain. Make sure Visual Studio Build Tools are installed.");
         println!("cargo:warning=You can install them from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022");
+        
+        // Try to provide more specific guidance
+        check_common_issues();
     }
+}
+
+/// Check for common installation issues and provide guidance
+fn check_common_issues() {
+    // Check if vswhere.exe exists
+    let vswhere_path = PathBuf::from(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
+    if !vswhere_path.exists() {
+        println!("cargo:warning=vswhere.exe not found. This suggests Visual Studio or Build Tools are not installed.");
+        println!("cargo:warning=Please install Visual Studio Build Tools from the Microsoft website.");
+        return;
+    }
+    
+    // Check if any Visual Studio installation exists
+    if let Ok(output) = Command::new(&vswhere_path)
+        .args(&["-latest", "-products", "*", "-property", "installationPath"])
+        .output()
+    {
+        if output.status.success() {
+            let install_path = String::from_utf8_lossy(&output.stdout).trim();
+            if !install_path.is_empty() {
+                println!("cargo:warning=Found Visual Studio at: {}", install_path);
+                
+                // Check if C++ tools are installed
+                let vc_path = PathBuf::from(install_path).join("VC");
+                if !vc_path.exists() {
+                    println!("cargo:warning=Visual Studio found but VC directory missing.");
+                    println!("cargo:warning=Please install the 'Desktop development with C++' workload.");
+                } else {
+                    println!("cargo:warning=VC directory found, but MSVC tools may be missing or in unexpected location.");
+                    println!("cargo:warning=Please ensure 'MSVC v143 - VS 2022 C++ x64/x86 build tools' is installed.");
+                }
+            }
+        }
+    }
+    
+    // Suggest using Developer Command Prompt
+    println!("cargo:warning=As a workaround, try running cargo build from 'Developer Command Prompt for VS 2022'");
 }

@@ -40,6 +40,14 @@ If you encounter this error, the build script will now:
 
 3. **Set up the environment** automatically for the cc crate
 
+### Error: "windows_aarch64_msvc could not compile due to linker not found"
+
+This error occurs when Rust dependencies (like `winapi`, `libc`, `getrandom`) can't find the MSVC linker. The enhanced build script now:
+
+- Sets up the MSVC environment **before** any compilation starts
+- Provides detailed diagnostics about what's missing
+- Gives specific installation guidance
+
 ### Manual Environment Setup
 
 If automatic detection fails, you can manually set up the environment:
@@ -61,11 +69,27 @@ This will show detailed information about:
 - Compiler and linker paths
 - Build flags being used
 
-### Common Issues
+### Common Issues and Solutions
 
-1. **Multiple Visual Studio versions**: The script prioritizes the latest installation
-2. **Missing Windows SDK**: Make sure you have a Windows SDK installed alongside the build tools
-3. **Architecture mismatch**: The script defaults to x64 tools, which should work for most cases
+1. **"vswhere.exe not found"**
+   - Visual Studio or Build Tools are not installed
+   - Install from the official Microsoft website
+
+2. **"Visual Studio found but VC directory missing"**
+   - Visual Studio is installed but without C++ support
+   - Run the Visual Studio Installer and add the "Desktop development with C++" workload
+
+3. **"VC directory found, but MSVC tools may be missing"**
+   - C++ workload is installed but specific build tools are missing
+   - Ensure "MSVC v143 - VS 2022 C++ x64/x86 build tools" is selected in the installer
+
+4. **Multiple Visual Studio versions**: The script prioritizes the latest installation
+
+5. **Architecture mismatch**: The script defaults to x64 tools, which should work for most cases
+
+### Quick Fix
+
+As a workaround, you can always run cargo build from the "Developer Command Prompt for VS 2022" which automatically sets up the correct environment.
 
 ### Environment Variables
 
@@ -77,6 +101,7 @@ The build script may set these environment variables automatically:
 
 The enhanced build script (`build.rs`) now includes:
 - MSVC toolchain auto-detection (similar to cc-rs registry.rs)
-- Proper environment setup
-- Detailed error reporting
+- Proper environment setup for all dependencies
+- Detailed error reporting and diagnostics
 - Support for multiple Visual Studio versions
+- Early environment setup to help dependency compilation

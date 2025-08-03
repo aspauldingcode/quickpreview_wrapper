@@ -34,6 +34,37 @@ pub fn find_msvc_toolchain() -> Option<PathBuf> {
     None
 }
 
+/// Find Windows SDK installation
+pub fn find_windows_sdk() -> Option<(PathBuf, String)> {
+    // Try to find Windows SDK using registry or common locations
+    let sdk_base = PathBuf::from(r"C:\Program Files (x86)\Windows Kits\10");
+    
+    if !sdk_base.exists() {
+        return None;
+    }
+    
+    // Find the latest SDK version
+    let include_path = sdk_base.join("Include");
+    if let Ok(entries) = std::fs::read_dir(&include_path) {
+        let mut versions: Vec<String> = entries
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+            .filter_map(|entry| entry.file_name().to_str().map(|s| s.to_string()))
+            .filter(|name| name.starts_with("10."))
+            .collect();
+        
+        versions.sort();
+        if let Some(latest_version) = versions.last() {
+            let sdk_lib_path = sdk_base.join("Lib").join(latest_version);
+            if sdk_lib_path.exists() {
+                return Some((sdk_lib_path, latest_version.clone()));
+            }
+        }
+    }
+    
+    None
+}
+
 /// Use vswhere.exe to find Visual Studio installation
 fn find_vs_installation() -> Option<PathBuf> {
     let vswhere_path = PathBuf::from(r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe");
@@ -70,10 +101,20 @@ fn find_vs_installation() -> Option<PathBuf> {
     
     if let Ok(version) = std::fs::read_to_string(&tools_version_file) {
         let version = version.trim();
-        let tools_path = vc_path.join("Tools").join("MSVC").join(version).join("bin").join("Hostx64").join("x64");
         
-        if tools_path.join("link.exe").exists() {
-            return Some(tools_path);
+        // Try different host architectures
+        let host_archs = ["Hostx64", "Hostx86", "Hostarm64"];
+        let target_archs = ["x64", "x86", "arm64"];
+        
+        for host_arch in &host_archs {
+            for target_arch in &target_archs {
+                let tools_path = vc_path.join("Tools").join("MSVC").join(version)
+                    .join("bin").join(host_arch).join(target_arch);
+                
+                if tools_path.join("link.exe").exists() {
+                    return Some(tools_path);
+                }
+            }
         }
     }
     
@@ -82,9 +123,16 @@ fn find_vs_installation() -> Option<PathBuf> {
     if let Ok(entries) = std::fs::read_dir(&msvc_path) {
         for entry in entries.flatten() {
             if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
-                let tools_path = entry.path().join("bin").join("Hostx64").join("x64");
-                if tools_path.join("link.exe").exists() {
-                    return Some(tools_path);
+                let host_archs = ["Hostx64", "Hostx86", "Hostarm64"];
+                let target_archs = ["x64", "x86", "arm64"];
+                
+                for host_arch in &host_archs {
+                    for target_arch in &target_archs {
+                        let tools_path = entry.path().join("bin").join(host_arch).join(target_arch);
+                        if tools_path.join("link.exe").exists() {
+                            return Some(tools_path);
+                        }
+                    }
                 }
             }
         }
@@ -95,8 +143,13 @@ fn find_vs_installation() -> Option<PathBuf> {
 
 /// Set up environment variables for MSVC toolchain
 pub fn setup_msvc_env() {
+    let mut found_toolchain = false;
+    let mut found_sdk = false;
+    
+    // Set up MSVC toolchain
     if let Some(toolchain_path) = find_msvc_toolchain() {
         println!("cargo:warning=Found MSVC toolchain at: {}", toolchain_path.display());
+        found_toolchain = true;
         
         // Add the toolchain path to the PATH environment variable for the build
         if let Ok(current_path) = env::var("PATH") {
@@ -108,13 +161,51 @@ pub fn setup_msvc_env() {
         if let Some(parent) = toolchain_path.parent() {
             if let Some(parent) = parent.parent() {
                 if let Some(parent) = parent.parent() {
-                    env::set_var("VCINSTALLDIR", parent);
+                    if let Some(parent) = parent.parent() {
+                        env::set_var("VCINSTALLDIR", parent);
+                    }
                 }
             }
         }
-    } else {
-        println!("cargo:warning=Could not find MSVC toolchain. Make sure Visual Studio Build Tools are installed.");
-        println!("cargo:warning=You can install them from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022");
+    }
+    
+    // Set up Windows SDK
+    if let Some((sdk_lib_path, sdk_version)) = find_windows_sdk() {
+        println!("cargo:warning=Found Windows SDK {} at: {}", sdk_version, sdk_lib_path.display());
+        found_sdk = true;
+        
+        // Set up LIB environment variable for different architectures
+        let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_else(|_| "x86_64".to_string());
+        let lib_arch = match target_arch.as_str() {
+            "x86_64" => "x64",
+            "x86" => "x86",
+            "aarch64" => "arm64",
+            _ => "x64", // default fallback
+        };
+        
+        let sdk_lib_arch_path = sdk_lib_path.join("um").join(lib_arch);
+        let sdk_ucrt_path = sdk_lib_path.join("ucrt").join(lib_arch);
+        
+        if let Ok(current_lib) = env::var("LIB") {
+            let new_lib = format!("{};{};{}", sdk_lib_arch_path.display(), sdk_ucrt_path.display(), current_lib);
+            env::set_var("LIB", new_lib);
+        } else {
+            let new_lib = format!("{};{}", sdk_lib_arch_path.display(), sdk_ucrt_path.display());
+            env::set_var("LIB", new_lib);
+        }
+        
+        println!("cargo:warning=Set LIB path for {} architecture: {}", lib_arch, sdk_lib_arch_path.display());
+        println!("cargo:warning=Set UCRT path: {}", sdk_ucrt_path.display());
+    }
+    
+    if !found_toolchain || !found_sdk {
+        println!("cargo:warning=Missing components detected:");
+        if !found_toolchain {
+            println!("cargo:warning=- MSVC toolchain not found");
+        }
+        if !found_sdk {
+            println!("cargo:warning=- Windows SDK not found");
+        }
         
         // Try to provide more specific guidance
         check_common_issues();
@@ -137,8 +228,8 @@ fn check_common_issues() {
         .output()
     {
         if output.status.success() {
-            let install_path = String::from_utf8_lossy(&output.stdout).trim();
-            if !install_path.is_empty() {
+        let install_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        if !install_path.is_empty() {
                 println!("cargo:warning=Found Visual Studio at: {}", install_path);
                 
                 // Check if C++ tools are installed
@@ -152,6 +243,16 @@ fn check_common_issues() {
                 }
             }
         }
+    }
+    
+    // Check Windows SDK
+    let sdk_path = PathBuf::from(r"C:\Program Files (x86)\Windows Kits\10");
+    if !sdk_path.exists() {
+        println!("cargo:warning=Windows SDK not found at expected location.");
+        println!("cargo:warning=Please install Windows 10/11 SDK through Visual Studio Installer.");
+    } else {
+        println!("cargo:warning=Windows SDK directory found but may be missing required components.");
+        println!("cargo:warning=Ensure 'Windows 10/11 SDK (latest version)' is selected in Visual Studio Installer.");
     }
     
     // Suggest using Developer Command Prompt

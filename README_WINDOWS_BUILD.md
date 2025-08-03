@@ -1,148 +1,146 @@
 # Windows Build Instructions
 
-This project now includes enhanced Windows build support that automatically detects the MSVC toolchain and Windows SDK.
+This project includes a custom build script that automatically detects and configures the MSVC toolchain and Windows SDK for compilation on Windows.
 
-## Prerequisites
+## Quick Fix for "link.exe not found" Error
 
-You need to install Microsoft Visual Studio Build Tools or Visual Studio with C++ support:
+If you encounter the error `linker 'link.exe' not found`, the fastest solution is to run the build from a **Developer Command Prompt**:
 
-### Option 1: Visual Studio Build Tools (Recommended)
-1. Download from: https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022
-2. Run the installer and select:
-   - **C++ build tools** workload
-   - **MSVC v143 - VS 2022 C++ x64/x86 build tools**
-   - **Windows 10/11 SDK** (latest version) - **CRITICAL for kernel32.lib**
+1. Open **Start Menu** and search for "Developer Command Prompt for VS"
+2. Open the Developer Command Prompt (not regular Command Prompt)
+3. Navigate to your project directory: `cd path\to\your\project`
+4. Run: `cargo build --release`
 
-### Option 2: Full Visual Studio
-1. Install Visual Studio Community/Professional/Enterprise
-2. Make sure to include the **Desktop development with C++** workload
-3. Ensure **Windows 10/11 SDK** is selected
+This sets up all the necessary environment variables automatically.
 
-## Building
+## Alternative Solution: Set Environment Variables Globally
 
-Once the build tools are installed, you can build the project normally:
+If you prefer to build from a regular terminal, you can set up the environment variables globally:
 
-```bash
+### Option 1: PowerShell Script (Recommended)
+Create a PowerShell script to set up the environment:
+
+```powershell
+# setup-msvc.ps1
+$vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+if ($vsPath) {
+    $vcvarsPath = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
+    if (Test-Path $vcvarsPath) {
+        cmd /c "`"$vcvarsPath`" && set" | ForEach-Object {
+            if ($_ -match "^([^=]+)=(.*)$") {
+                [Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+            }
+        }
+        Write-Host "MSVC environment configured successfully"
+    }
+}
+```
+
+Run this script before building:
+```powershell
+.\setup-msvc.ps1
 cargo build --release
 ```
 
-## Troubleshooting
+### Option 2: Manual PATH Setup
+Add the MSVC toolchain to your system PATH:
+1. Find your Visual Studio installation (usually `C:\Program Files\Microsoft Visual Studio\2022\...`)
+2. Add the toolchain path to your system PATH:
+   - For x64: `VC\Tools\MSVC\14.xx.xxxxx\bin\Hostx64\x64\`
+   - For ARM64: `VC\Tools\MSVC\14.xx.xxxxx\bin\Hostx64\arm64\`
 
-### Error: "cannot open input file 'kernel32.lib'"
+## Automatic Detection Features
 
-This error occurs when the Windows SDK is missing or not properly configured. The error message:
-```
-LINK : fatal error LNK1181: cannot open input file 'kernel32.lib'
-```
+The build script automatically:
+- Detects Visual Studio installations using `vswhere.exe`
+- Locates MSVC toolchain for your target architecture
+- Finds and configures Windows SDK paths
+- Sets up proper library paths (`LIB` environment variable)
+- Supports both x64 and ARM64 architectures
 
-**Solution**: The build script now automatically:
-1. **Detects Windows SDK installation** and version
-2. **Sets up LIB environment variable** with correct paths for your target architecture
-3. **Configures both UM and UCRT library paths** needed for system libraries
-
-### Error: "link.exe not found"
-
-If you encounter this error, the build script will now:
-
-1. **Automatically search for MSVC toolchain** using multiple methods:
-   - Uses `vswhere.exe` to find Visual Studio installations
-   - Checks `VCINSTALLDIR` environment variable
-   - Searches for `link.exe` in PATH
-   - **Now supports multiple host architectures** (x64, x86, arm64)
-
-2. **Provide detailed warnings** about what was found or missing
-
-3. **Set up the environment** automatically for the cc crate
+## Troubleshooting Common Issues
 
 ### Error: "windows_aarch64_msvc could not compile due to linker not found"
 
-This error occurs when Rust dependencies (like `winapi`, `libc`, `getrandom`) can't find the MSVC linker. The enhanced build script now:
+This error occurs when the MSVC linker (`link.exe`) cannot be found by dependency crates. The build script attempts to configure the environment, but dependencies compile in separate processes.
 
-- Sets up the MSVC environment **before** any compilation starts
-- **Automatically detects your target architecture** (x64, x86, arm64)
-- **Configures library paths for the correct architecture**
-- Provides detailed diagnostics about what's missing
-- Gives specific installation guidance
+**Root Cause**: Cargo compiles dependencies in separate processes that don't inherit the environment variables set by our build script.
 
-### Manual Environment Setup
+**Solutions (in order of preference)**:
 
-If automatic detection fails, you can manually set up the environment:
+1. **Use Developer Command Prompt** (Most Reliable)
+   - Open "Developer Command Prompt for VS" from Start Menu
+   - Navigate to project directory and run `cargo build --release`
 
-1. Open "Developer Command Prompt for VS 2022" from Start Menu
-2. Run your cargo build command from there
+2. **Set Environment Variables Before Running Cargo**
+   ```powershell
+   # PowerShell - run before cargo build
+   $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+   $vcvarsPath = "$vsPath\VC\Auxiliary\Build\vcvars64.bat"
+   cmd /c "`"$vcvarsPath`" && set" | ForEach-Object {
+       if ($_ -match "^([^=]+)=(.*)$") {
+           [Environment]::SetEnvironmentVariable($matches[1], $matches[2], "Process")
+       }
+   }
+   cargo build --release
+   ```
 
-### Verbose Build Output
+3. **Manual PATH Configuration**
+   - Add MSVC toolchain directory to your system's PATH environment variable
+   - Restart your terminal/IDE after making PATH changes
 
-For debugging build issues, use:
+### Error: "LNK1181: cannot open input file 'kernel32.lib'"
 
-```bash
-set CARGO_BUILD_VERBOSE=1
-cargo build --release
-```
+This error indicates that while `link.exe` is found, the Windows SDK libraries are not properly configured.
 
-This will show detailed information about:
-- MSVC toolchain detection
-- Windows SDK detection and version
-- Library paths being set for your architecture
-- Compiler and linker paths
-- Build flags being used
+**Cause**: The Windows SDK provides essential system libraries like `kernel32.lib`, `user32.lib`, etc. The `LIB` environment variable must be set correctly.
+
+**Solution**: Use the Developer Command Prompt or ensure the `LIB` environment variable includes:
+- Windows SDK UM libraries: `C:\Program Files (x86)\Windows Kits\10\Lib\{version}\um\{arch}\`
+- Windows SDK UCRT libraries: `C:\Program Files (x86)\Windows Kits\10\Lib\{version}\ucrt\{arch}\`
+- MSVC runtime libraries: `{VS_PATH}\VC\Tools\MSVC\{version}\lib\{arch}\`
 
 ### Common Issues and Solutions
 
 1. **"vswhere.exe not found"**
-   - Visual Studio or Build Tools are not installed
-   - Install from the official Microsoft website
+   - Install Visual Studio 2017 or later (Community edition is sufficient)
+   - Ensure Visual Studio Installer includes the C++ build tools
 
 2. **"Visual Studio found but VC directory missing"**
-   - Visual Studio is installed but without C++ support
-   - Run the Visual Studio Installer and add the "Desktop development with C++" workload
+   - In Visual Studio Installer, modify your installation
+   - Ensure "MSVC v143 - VS 2022 C++ x64/x86 build tools" is selected
+   - For ARM64 development, also select "MSVC v143 - VS 2022 C++ ARM64 build tools"
 
-3. **"VC directory found, but MSVC tools may be missing"**
-   - C++ workload is installed but specific build tools are missing
-   - Ensure "MSVC v143 - VS 2022 C++ x64/x86 build tools" is selected in the installer
+3. **Build works in Developer Command Prompt but not regular terminal**
+   - This is expected behavior due to how Cargo handles dependency compilation
+   - The Developer Command Prompt is the recommended solution
 
-4. **"Windows SDK not found" or "kernel32.lib not found"**
-   - Windows SDK is missing or incomplete
-   - In Visual Studio Installer, ensure "Windows 10/11 SDK (latest version)" is selected
-   - This is **required** for system libraries like kernel32.lib, user32.lib, etc.
+4. **UTM/Virtual Machine Issues**
+   - Ensure Visual Studio is properly installed in the VM
+   - VM performance may be slower, but functionality should be the same
+   - Consider using the Developer Command Prompt for most reliable results
 
-5. **Architecture mismatch issues**
-   - The script now automatically detects your target architecture
-   - Supports x64, x86, and arm64 builds
-   - Sets up the correct library paths for each architecture
+## Requirements
 
-6. **Multiple Visual Studio versions**: The script prioritizes the latest installation
-
-### Quick Fix
-
-As a workaround, you can always run cargo build from the "Developer Command Prompt for VS 2022" which automatically sets up the correct environment.
-
-### Environment Variables
-
-The build script may set these environment variables automatically:
-- `PATH` - Updated to include MSVC tools directory
-- `VCINSTALLDIR` - Set to Visual Studio installation directory
-- `LIB` - Set to include Windows SDK library paths for your target architecture
-
-## Build Script Details
-
-The enhanced build script (`build.rs`) now includes:
-- MSVC toolchain auto-detection (similar to cc-rs registry.rs)
-- **Windows SDK detection and configuration**
-- **Multi-architecture support** (x64, x86, arm64)
-- **Automatic LIB path setup** for system libraries
-- Proper environment setup for all dependencies
-- Detailed error reporting and diagnostics
-- Support for multiple Visual Studio versions
-- Early environment setup to help dependency compilation
+- Visual Studio 2017 or later (Community edition works)
+- Windows SDK (usually installed with Visual Studio)
+- For ARM64 builds: ARM64 build tools component
 
 ## Architecture Support
 
-The build script automatically detects and configures for:
-- **x86_64** → uses x64 libraries
-- **x86** → uses x86 libraries  
-- **aarch64** → uses arm64 libraries
+The build script supports:
+- x64 (Intel/AMD 64-bit)
+- x86 (32-bit)
+- ARM64 (Windows on ARM)
 
-Library paths are automatically set for both:
-- **UM libraries** (user-mode libraries like kernel32.lib, user32.lib)
-- **UCRT libraries** (Universal C Runtime)
+The correct toolchain and libraries are automatically selected based on your target architecture.
+
+## Why cc-rs Detection Sometimes Fails
+
+The `cc-rs` crate (used by many Rust dependencies) has known limitations:
+- Relies on COM components that may not be properly registered on some systems
+- Requires specific environment variables (`VCINSTALLDIR`) that aren't always set
+- Has historical issues with standalone build tools vs. full Visual Studio installations
+- Can have problems on ARM64 Windows systems
+
+Using the Developer Command Prompt bypasses these issues by setting up the complete MSVC environment.

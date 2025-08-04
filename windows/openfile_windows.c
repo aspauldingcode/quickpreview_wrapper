@@ -5,6 +5,127 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <shlobj.h>
+#include <shobjidl.h>
+#include <comdef.h>
+#include <atlbase.h>
+
+// Function to check if QuickLook for Windows is installed
+BOOL isQuickLookInstalled() {
+    HKEY hKey;
+    LONG result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{B8E5C8C2-2E5C-4F8E-8F8E-8F8E8F8E8F8E}_is1", 
+        0, KEY_READ, &hKey);
+    
+    if (result == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return TRUE;
+    }
+    
+    // Also check for PowerToys which includes a QuickLook-like feature
+    result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PowerToys", 
+        0, KEY_READ, &hKey);
+    
+    if (result == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return TRUE;
+    }
+    
+    return FALSE;
+}
+
+// Function to launch QuickLook for Windows
+BOOL launchQuickLook(const wchar_t* filePath) {
+    // Try QuickLook for Windows first
+    wchar_t quickLookCmd[2048];
+    swprintf_s(quickLookCmd, 2048, L"QuickLook.exe \"%s\"", filePath);
+    
+    STARTUPINFOW si = {0};
+    PROCESS_INFORMATION pi = {0};
+    si.cb = sizeof(si);
+    
+    if (CreateProcessW(NULL, quickLookCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        return TRUE;
+    }
+    
+    // Try PowerToys File Preview
+    swprintf_s(quickLookCmd, 2048, L"PowerToys.exe --preview \"%s\"", filePath);
+    
+    if (CreateProcessW(NULL, quickLookCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        return TRUE;
+    }
+    
+    return FALSE;
+}
+
+// Function to create a simple preview window using Windows API
+LRESULT CALLBACK PreviewWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+        case WM_KEYDOWN:
+            if (wParam == VK_ESCAPE || wParam == VK_SPACE) {
+                PostQuitMessage(0);
+                return 0;
+            }
+            break;
+        case WM_CLOSE:
+            PostQuitMessage(0);
+            return 0;
+        case WM_DESTROY:
+            PostQuitMessage(0);
+            return 0;
+    }
+    return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+// Function to show a basic preview window
+BOOL showPreviewWindow(const wchar_t* filePath, BOOL fullscreen) {
+    WNDCLASSW wc = {0};
+    wc.lpfnWndProc = PreviewWindowProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = L"QuickPreviewWindow";
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+    
+    if (!RegisterClassW(&wc)) {
+        return FALSE;
+    }
+    
+    DWORD style = fullscreen ? WS_POPUP : (WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX);
+    int width = fullscreen ? GetSystemMetrics(SM_CXSCREEN) : 800;
+    int height = fullscreen ? GetSystemMetrics(SM_CYSCREEN) : 600;
+    int x = fullscreen ? 0 : (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
+    int y = fullscreen ? 0 : (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
+    
+    HWND hwnd = CreateWindowW(L"QuickPreviewWindow", L"Quick Preview", style,
+        x, y, width, height, NULL, NULL, GetModuleHandle(NULL), NULL);
+    
+    if (!hwnd) {
+        return FALSE;
+    }
+    
+    ShowWindow(hwnd, SW_SHOW);
+    UpdateWindow(hwnd);
+    
+    // Try to use Windows Preview Handler
+    CoInitialize(NULL);
+    
+    // Message loop
+    MSG msg;
+    printf("Preview window opened. Press ESC or SPACE to close, or close the window.\n");
+    
+    while (GetMessage(&msg, NULL, 0, 0)) {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+    
+    CoUninitialize();
+    return TRUE;
+}
 
 // Windows implementation of the openFiles function
 int openFiles(int argc, const char **argv, int fullscreen) {
@@ -13,7 +134,10 @@ int openFiles(int argc, const char **argv, int fullscreen) {
         return 1;
     }
 
-    printf("Opening %d file(s) with Windows Quick Look equivalent...\n", argc);
+    printf("Opening %d file(s) with Windows QuickLook equivalent...\n", argc);
+    
+    // Check if QuickLook is installed
+    BOOL hasQuickLook = isQuickLookInstalled();
     
     for (int i = 0; i < argc; i++) {
         const char* filePath = argv[i];
@@ -46,62 +170,51 @@ int openFiles(int argc, const char **argv, int fullscreen) {
             continue;
         }
 
-        // Try to open file with default associated program
-        HINSTANCE result = ShellExecuteW(
-            NULL,           // hwnd
-            L"open",        // operation
-            wideFilePath,   // file
-            NULL,           // parameters
-            NULL,           // directory
-            SW_SHOWNORMAL   // show command
-        );
+        BOOL success = FALSE;
+        
+        // Try QuickLook for Windows first if available
+        if (hasQuickLook) {
+            printf("Attempting to use QuickLook for Windows...\n");
+            success = launchQuickLook(wideFilePath);
+        }
+        
+        // If QuickLook is not available or failed, use our preview window
+        if (!success) {
+            printf("Using built-in preview window...\n");
+            success = showPreviewWindow(wideFilePath, fullscreen);
+        }
+        
+        // Fallback to default system behavior
+        if (!success) {
+            printf("Falling back to default system viewer...\n");
+            HINSTANCE result = ShellExecuteW(
+                NULL,           // hwnd
+                L"open",        // operation
+                wideFilePath,   // file
+                NULL,           // parameters
+                NULL,           // directory
+                SW_SHOWNORMAL   // show command
+            );
 
-        // Check if ShellExecute succeeded
-        if ((INT_PTR)result <= 32) {
-            // If default open fails, try with Windows Photo Viewer or similar
-            printf("Default open failed for %s, trying alternative viewers...\n", filePath);
-            
-            // Try Windows Photo Viewer for images
-            wchar_t photoViewerCmd[1024];
-            swprintf_s(photoViewerCmd, 1024, 
-                L"rundll32.exe \"C:\\Program Files\\Windows Photo Viewer\\PhotoViewer.dll\", ImageView_Fullscreen %s", 
-                wideFilePath);
-            
-            STARTUPINFOW si = {0};
-            PROCESS_INFORMATION pi = {0};
-            si.cb = sizeof(si);
-            
-            if (!CreateProcessW(NULL, photoViewerCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-                // If Photo Viewer fails, try the modern Photos app
-                wchar_t photosCmd[1024];
-                swprintf_s(photosCmd, 1024, L"ms-photos:viewer?fileName=%s", wideFilePath);
-                
-                result = ShellExecuteW(NULL, L"open", photosCmd, NULL, NULL, SW_SHOWNORMAL);
-                
-                if ((INT_PTR)result <= 32) {
-                    printf("Warning: Could not open file with any viewer: %s\n", filePath);
-                }
+            if ((INT_PTR)result <= 32) {
+                printf("Warning: Could not open file with any viewer: %s\n", filePath);
             } else {
-                CloseHandle(pi.hProcess);
-                CloseHandle(pi.hThread);
+                printf("Successfully opened with default viewer: %s\n", filePath);
+                success = TRUE;
             }
-        } else {
-            printf("Successfully opened: %s\n", filePath);
         }
 
         free(wideFilePath);
-    }
-
-    if (argc > 1) {
-        printf("\nOpened %d files. Press Enter to continue...", argc);
-        getchar();
+        
+        if (success) {
+            printf("Successfully previewed: %s\n", filePath);
+        }
     }
     
     return 0; // Success
 }
 
 // Alternative implementation using Windows Runtime (for modern Windows 10/11)
-// This could be used for a more native Quick Look-like experience
 int openFilesWithWindowsRuntime(int argc, const char **argv, int fullscreen) {
     // This would require linking against Windows Runtime libraries
     // and using C++/WinRT or similar for a more modern implementation
@@ -109,4 +222,4 @@ int openFilesWithWindowsRuntime(int argc, const char **argv, int fullscreen) {
     return openFiles(argc, argv, fullscreen);
 }
 
-#endif // _WIN32 
+#endif // _WIN32

@@ -6,6 +6,7 @@ extern "C" {
     fn openFiles(argc: c_int, argv: *const *const c_char, fullscreen: c_int) -> c_int;
 }
 
+#[allow(dead_code)]
 pub fn open_quicklook(filename: &str, fullscreen: bool) -> Result<(), Box<dyn std::error::Error>> {
     // Convert Rust string to C string
     let c_filename = CString::new(filename)?;

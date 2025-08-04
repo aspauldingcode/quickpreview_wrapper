@@ -43,6 +43,10 @@ fn main() {
             println!("cargo:rustc-link-lib=shell32");
             println!("cargo:rustc-link-lib=user32");
             println!("cargo:rustc-link-lib=kernel32");
+            println!("cargo:rustc-link-lib=advapi32");
+            println!("cargo:rustc-link-lib=ole32");
+            println!("cargo:rustc-link-lib=oleaut32");
+            println!("cargo:rustc-link-lib=uuid");
             
             println!("cargo:rerun-if-changed=windows/openfile_windows.c");
         },

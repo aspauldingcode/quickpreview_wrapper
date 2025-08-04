@@ -6,69 +6,43 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Function to check if QuickLook for Windows is installed
-BOOL isQuickLookInstalled() {
-    wchar_t quickLookPath[MAX_PATH];
-    
-    // Check common installation paths (user-local first, then system-wide)
-    const wchar_t* paths[] = {
+// Simplified path check for QuickLook.exe
+static BOOL getQuickLookPath(wchar_t* path) {
+    const wchar_t* locations[] = {
         L"%LOCALAPPDATA%\\Programs\\QuickLook\\QuickLook.exe",
         L"%PROGRAMFILES%\\QuickLook\\QuickLook.exe",
         L"%PROGRAMFILES(X86)%\\QuickLook\\QuickLook.exe"
     };
-    
-    for (int i = 0; i < sizeof(paths)/sizeof(paths[0]); i++) {
-        if (ExpandEnvironmentStringsW(paths[i], quickLookPath, MAX_PATH)) {
-            DWORD fileAttr = GetFileAttributesW(quickLookPath);
-            if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
-                return TRUE;
-            }
-        }
-    }
-    
-    return FALSE;
-}
 
-// Function to launch QuickLook.exe if not already running
-BOOL ensureQuickLookRunning(const wchar_t* quickLookPath) {
-    // Check if QuickLook is already running
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hSnapshot == INVALID_HANDLE_VALUE) {
-        return FALSE;
-    }
-    
-    PROCESSENTRY32W pe32;
-    pe32.dwSize = sizeof(PROCESSENTRY32W);
-    
-    BOOL isRunning = FALSE;
-    if (Process32FirstW(hSnapshot, &pe32)) {
-        do {
-            if (wcscmp(pe32.szExeFile, L"QuickLook.exe") == 0) {
-                isRunning = TRUE;
-                break;
-            }
-        } while (Process32NextW(hSnapshot, &pe32));
-    }
-    CloseHandle(hSnapshot);
-    
-    if (!isRunning) {
-        wchar_t commandLine[MAX_PATH * 2];
-        swprintf_s(commandLine, MAX_PATH * 2, L"\"%s\"", quickLookPath);
-        
-        STARTUPINFOW si = {0};
-        PROCESS_INFORMATION pi = {0};
-        si.cb = sizeof(si);
-        
-        if (CreateProcessW(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-            CloseHandle(pi.hProcess);
-            CloseHandle(pi.hThread);
-            // Give QuickLook time to initialize
-            Sleep(1000);
+    for (int i = 0; i < sizeof(locations)/sizeof(locations[0]); i++) {
+        if (ExpandEnvironmentStringsW(locations[i], path, MAX_PATH) 
+            && GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES) {
             return TRUE;
         }
     }
+    return FALSE;
+}
+
+// Direct QuickLook invocation as per official documentation
+BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
+    wchar_t qlPath[MAX_PATH];
+    if (!getQuickLookPath(qlPath)) return FALSE;
+
+    wchar_t cmdLine[MAX_PATH * 3];
+    swprintf_s(cmdLine, MAX_PATH * 3, 
+        L"\"%s\" /standby /preview:\"%s\"%s", 
+        qlPath, filePath, 
+        fullscreen ? L" /fullscreen" : L"");
+
+    STARTUPINFOW si = { sizeof(si) };
+    PROCESS_INFORMATION pi;
     
-    return isRunning;
+    if (CreateProcessW(NULL, cmdLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+        CloseHandle(pi.hProcess);
+        CloseHandle(pi.hThread);
+        return TRUE;
+    }
+    return FALSE;
 }
 
 // Function to get the path to QuickLook.exe
@@ -119,64 +93,25 @@ BOOL previewWithQuickLook(const wchar_t* filePath) {
     return FALSE;
 }
 
-// Windows implementation of the openFiles function
+// Simplified Windows file opener
 int openFiles(int argc, const char **argv, int fullscreen) {
-    if (argc <= 0 || argv == NULL) {
-        printf("Error: No files provided to open.\n");
-        return 1;
-    }
+    if (argc < 1 || !argv) return 1;
 
-    printf("Opening %d file(s) with QuickLook...\n", argc);
-    
-    // Check if QuickLook is installed
-    BOOL hasQuickLook = isQuickLookInstalled();
-    if (!hasQuickLook) {
-        printf("QuickLook for Windows not found. Please install it from https://github.com/QL-Win/QuickLook\n");
-        return 1;
-    }
-    
     for (int i = 0; i < argc; i++) {
-        const char* filePath = argv[i];
-        printf("Processing file: %s\n", filePath);
+        const char* utf8Path = argv[i];
+        int wideLen = MultiByteToWideChar(CP_UTF8, 0, utf8Path, -1, NULL, 0);
+        if (wideLen == 0) continue;
 
-        // Convert to wide string for Windows API
-        int len = MultiByteToWideChar(CP_UTF8, 0, filePath, -1, NULL, 0);
-        if (len == 0) {
-            printf("Error: Failed to convert file path to wide string: %s\n", filePath);
+        wchar_t* widePath = (wchar_t*)malloc(wideLen * sizeof(wchar_t));
+        if (!widePath || !MultiByteToWideChar(CP_UTF8, 0, utf8Path, -1, widePath, wideLen)
+            || GetFileAttributesW(widePath) == INVALID_FILE_ATTRIBUTES) {
+            free(widePath);
             continue;
         }
 
-        wchar_t* wideFilePath = (wchar_t*)malloc(len * sizeof(wchar_t));
-        if (!wideFilePath) {
-            printf("Error: Memory allocation failed for file: %s\n", filePath);
-            continue;
-        }
-
-        if (MultiByteToWideChar(CP_UTF8, 0, filePath, -1, wideFilePath, len) == 0) {
-            printf("Error: Failed to convert file path: %s\n", filePath);
-            free(wideFilePath);
-            continue;
-        }
-
-        // Check if file exists
-        DWORD fileAttr = GetFileAttributesW(wideFilePath);
-        if (fileAttr == INVALID_FILE_ATTRIBUTES) {
-            printf("Error: File not found or inaccessible: %s\n", filePath);
-            free(wideFilePath);
-            continue;
-        }
-
-        // Try to preview with QuickLook
-        if (!previewWithQuickLook(wideFilePath)) {
-            printf("Failed to preview file with QuickLook: %s\n", filePath);
-            free(wideFilePath);
-            continue;
-        }
-
-        free(wideFilePath);
-        printf("Successfully previewed: %s\n", filePath);
+        launchQuickLook(widePath, fullscreen);
+        free(widePath);
     }
-    
     return 0;
 }
 

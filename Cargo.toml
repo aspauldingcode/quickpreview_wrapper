@@ -16,11 +16,30 @@ cocoa = "0.24"
 core-foundation = "0.9"
 objc_id = "0.1"
 
-[target.'cfg(target_os = "windows")'.dependencies]
-winapi = { version = "0.3", features = ["winuser", "processthreadsapi", "securitybaseapi", "handleapi", "fileapi", "errhandlingapi", "winbase", "winnt", "minwindef", "ntdef", "winerror"] }
-
 [build-dependencies]
 cc = { version = "1.0", features = ["parallel"] }
 
 [package.metadata.macos]
 frameworks = ["Cocoa", "Quartz"]
+
+# Windows MSVC toolchain configuration
+[target.x86_64-pc-windows-msvc]
+linker = "link.exe"
+
+[target.aarch64-pc-windows-msvc]
+linker = "link.exe"
+
+# Windows-specific dependencies
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = { version = "0.3", features = ["shellapi", "winuser", "processthreadsapi"] }
+
+# Environment variables for cc-rs crate with MSVC toolchain
+[env]
+CC_x86_64_pc_windows_msvc = "cl.exe"
+CXX_x86_64_pc_windows_msvc = "cl.exe"
+AR_x86_64_pc_windows_msvc = "lib.exe"
+LINKER_x86_64_pc_windows_msvc = "link.exe"
+CC_aarch64_pc_windows_msvc = "cl.exe"
+CXX_aarch64_pc_windows_msvc = "cl.exe"
+AR_aarch64_pc_windows_msvc = "lib.exe"
+LINKER_aarch64_pc_windows_msvc = "link.exe"

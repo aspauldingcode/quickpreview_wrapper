@@ -1,72 +1,76 @@
 use std::env;
 
-mod build_helper;
-
 fn main() {
-    // Set up MSVC environment early for Windows builds (including ARM64)
-    // This must happen before any dependencies compile
-    #[cfg(windows)]
-    {
-        println!("cargo:warning=Setting up MSVC environment for Windows build");
-        build_helper::setup_msvc_env();
-        
-        // Also set environment variables that will be inherited by dependency builds
-        if let Ok(path) = std::env::var("PATH") {
-            println!("cargo:rustc-env=PATH={}", path);
-        }
-        if let Ok(lib) = std::env::var("LIB") {
-            println!("cargo:rustc-env=LIB={}", lib);
-        }
-        if let Ok(vcinstalldir) = std::env::var("VCINSTALLDIR") {
-            println!("cargo:rustc-env=VCINSTALLDIR={}", vcinstalldir);
-        }
-        if let Ok(cc) = std::env::var("CC") {
-            println!("cargo:rustc-env=CC={}", cc);
-        }
-        if let Ok(cxx) = std::env::var("CXX") {
-            println!("cargo:rustc-env=CXX={}", cxx);
-        }
-    }
-
-    // Build the C++ wrapper
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    
+    // Build the C wrapper with platform-specific implementations
     let mut build = cc::Build::new();
     
+    // Common C configuration
     build
-        .cpp(true)
-        .file("src/quickpreview_wrapper.cpp")
-        .include("src")
-        .flag_if_supported("-std=c++17");
+        .file("main.c")
+        .file("openfile.c")
+        .include(".");
 
-    // Platform-specific configurations
-    #[cfg(target_os = "macos")]
-    {
-        build
-            .flag("-framework")
-            .flag("QuickLook")
-            .flag("-framework")
-            .flag("Foundation")
-            .flag("-framework")
-            .flag("CoreFoundation")
-            .flag("-framework")
-            .flag("AppKit");
+    // Platform-specific configurations and files
+    match target_os.as_str() {
+        "macos" => {
+            println!("cargo:warning=Building for macOS");
+            build
+                .file("macos/macos.m")
+                .flag("-framework")
+                .flag("QuickLook")
+                .flag("-framework")
+                .flag("Foundation")
+                .flag("-framework")
+                .flag("CoreFoundation")
+                .flag("-framework")
+                .flag("AppKit")
+                .flag("-framework")
+                .flag("Quartz");
+            
+            println!("cargo:rerun-if-changed=macos/macos.m");
+        },
+        "linux" => {
+            println!("cargo:warning=Building for Linux");
+            // Linux implementation would go here
+            // For now, we'll use a placeholder
+        },
+        "windows" => {
+            println!("cargo:warning=Building for Windows with MSVC");
+            build
+                .file("windows/openfile_windows.c")
+                .define("_WIN32", None);
+            
+            // Link Windows libraries
+            println!("cargo:rustc-link-lib=shell32");
+            println!("cargo:rustc-link-lib=user32");
+            println!("cargo:rustc-link-lib=kernel32");
+            
+            println!("cargo:rerun-if-changed=windows/openfile_windows.c");
+        },
+        _ => {
+            println!("cargo:warning=Unknown target OS: {}", target_os);
+        }
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        // Windows-specific flags can be added here if needed
-        println!("cargo:warning=Compiling for Windows");
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        // Linux-specific configurations can be added here
-        println!("cargo:warning=Compiling for Linux");
+    // Set compiler flags based on target
+    if target_os == "windows" {
+        // MSVC-specific flags
+        build.flag_if_supported("/std:c11");
+        // Enable Unicode support
+        build.define("UNICODE", None);
+        build.define("_UNICODE", None);
+    } else {
+        // GCC/Clang flags
+        build.flag_if_supported("-std=c11");
     }
 
     build.compile("quickpreview_wrapper");
 
-    println!("cargo:rerun-if-changed=src/quickpreview_wrapper.cpp");
-    println!("cargo:rerun-if-changed=src/quickpreview_wrapper.h");
+    // Rebuild triggers
+    println!("cargo:rerun-if-changed=main.c");
+    println!("cargo:rerun-if-changed=openfile.c");
+    println!("cargo:rerun-if-changed=openfile.h");
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=build_helper.rs");
 }

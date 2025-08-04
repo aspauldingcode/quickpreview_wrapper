@@ -13,79 +13,51 @@ A universal CLI tool for quickpreview functionality on macOS, Linux, and Windows
 - Linux: Sushi (GNOME)
 - Windows: QuickLook (install via `winget install --id=QL-Win.QuickLook --exact` or from https://github.com/QL-Win/QuickLook)
   - **Rust**: Install via `winget install --id Rustlang.Rustup -e`
-  - **Visual Studio Build Tools** (Required for linking): 
-    ```bash
-    winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --quiet"
+  - **GNU Toolchain** (Recommended - easier setup than MSVC):
+    
+    **Step 1: Install MSYS2 (provides MinGW-w64/GCC)**
+    ```powershell
+    # Install MSYS2 silently using winget
+    winget install MSYS2.MSYS2 --silent
     ```
-  - **Configure Rust toolchain** (choose based on your Windows architecture):
+    
+    **Step 2: Install MinGW-w64 toolchain**
+    Stay in your current PowerShell and run:
+    ```powershell
+    # Update package database
+    C:\msys64\usr\bin\pacman.exe -Syu --noconfirm
+    
+    # Install MinGW-w64 toolchain (includes GCC, G++, etc.)
+    C:\msys64\usr\bin\pacman.exe -S mingw-w64-ucrt-x86_64-toolchain --noconfirm
+    ```
+    
+    **Step 3: Add to PATH**
+    Add `C:\msys64\ucrt64\bin` to your Windows PATH environment variable
+    
+    **Step 4: Install Rust GNU toolchain**
     
     **For x64 Windows:**
-    ```bash
-    rustup toolchain install stable-x86_64-pc-windows-msvc
-    rustup default stable-x86_64-pc-windows-msvc
+    ```powershell
+    # Install GNU toolchain for Windows x64
+    rustup toolchain install stable-x86_64-pc-windows-gnu
+    rustup default stable-x86_64-pc-windows-gnu
     ```
     
     **For ARM64 Windows:**
-    ```bash
-    rustup toolchain install stable-aarch64-pc-windows-msvc
-    rustup default stable-aarch64-pc-windows-msvc
+    ```powershell
+    # Install GNU toolchain for Windows ARM64  
+    rustup toolchain install stable-aarch64-pc-windows-gnu
+    rustup default stable-aarch64-pc-windows-gnu
+    
+    # Note: You'll also need ARM64 MinGW-w64 toolchain
+    # In MSYS2 UCRT64 terminal:
+    # pacman -S mingw-w64-ucrt-aarch64-toolchain
     ```
     
-    **Check your architecture:**
+  - **Check your architecture** (to choose the right toolchain):
     ```powershell
     echo $env:PROCESSOR_ARCHITECTURE
     ```
-    
-  - **If you get "link.exe not found" error**:
-    1. **Find your link.exe path** (architecture-specific):
-       ```bash
-       where.exe link
-       ```
-       Common paths:
-       - **x64**: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostx64\x64\`
-       - **ARM64**: `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\<version>\bin\Hostarm64\arm64\`
-    
-    2. **Add to PATH** (choose one method):
-       
-       **Method 1 - GUI (Recommended):**
-       - Press `Win + R`, type `sysdm.cpl`, press Enter
-       - Click "Environment Variables"
-       - Under "System Variables", select "Path" and click "Edit"
-       - Click "New" and add your linker path (e.g., `C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.38.33135\bin\Hostarm64\arm64\`)
-       - Click OK on all dialogs
-       
-       **Method 2 - PowerShell (Run as Administrator):**
-       ```powershell
-       # Get current PATH
-       $currentPath = [Environment]::GetEnvironmentVariable("PATH", "Machine")
-       
-       # Add your linker path (replace with your actual path)
-       $newPath = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.38.33135\bin\Hostarm64\arm64"
-       
-       # Set new PATH
-       [Environment]::SetEnvironmentVariable("PATH", $newPath + ";" + $currentPath, "Machine")
-       ```
-       
-       **Method 3 - Command Prompt (Run as Administrator):**
-       ```cmd
-       setx PATH "%PATH%;C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.38.33135\bin\Hostarm64\arm64" /M
-       ```
-    
-    3. **Restart your terminal completely** and verify:
-       ```bash
-       link /?
-       ```
-    
-    4. **Alternative**: Use "Developer Command Prompt for VS 2022" or "Developer PowerShell for VS 2022" which have the PATH pre-configured
-  - After installing Rust and Build Tools, run:
-    ```
-    rustup toolchain install stable-msvc
-    rustup default stable-msvc
-    ```
-  - **Troubleshooting**: If you still get "link.exe not found" error:
-    - Restart your terminal/PowerShell after installing Build Tools
-    - Run the build from "Developer Command Prompt for VS 2022" or "Developer PowerShell for VS 2022"
-    - Verify installation: `where link.exe` should show the linker path
 
 ## Quick Start
 1. Install Nix: https://nixos.org/download.html

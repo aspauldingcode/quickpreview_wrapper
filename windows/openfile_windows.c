@@ -24,6 +24,9 @@ static BOOL getQuickLookPath(wchar_t* path) {
 }
 
 // Direct QuickLook invocation as per official documentation
+// Function prototype for path checker
+static BOOL getQuickLookPath(wchar_t* path);
+
 BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
     wchar_t qlPath[MAX_PATH];
     if (!getQuickLookPath(qlPath)) return FALSE;
@@ -33,6 +36,7 @@ BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
         L"\"%s\" /standby /preview:\"%s\"%s", 
         qlPath, filePath, 
         fullscreen ? L" /fullscreen" : L"");
+    cmdLine[MAX_PATH * 3 - 1] = L'\0'; // Ensure null-termination
 
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi;

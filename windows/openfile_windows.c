@@ -64,13 +64,13 @@ BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
 
 // Simplified Windows file opener
 int openFiles(int argc, const char **argv, int fullscreen) {
-    if (argc < 2 || !argv) {
+    if (argc < 1 || !argv) {
         fprintf(stderr, "Error: No file paths provided\n");
         return 1;
     }
 
     BOOL anySuccess = FALSE;
-    for (int i = 1; i < argc; i++) {
+    for (int i = 0; i < argc; i++) {
         const char* utf8Path = argv[i];
         if (!utf8Path) {
             fprintf(stderr, "Error: Invalid path argument at position %d\n", i);

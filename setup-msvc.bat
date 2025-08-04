@@ -154,7 +154,7 @@ if %errorLevel% equ 0 (
 
 :found_link
 
-:: Verify MSVC tools are available
+:: Verify MSVC tools are available and add to PATH if needed
 if %FOUND_CL% equ 0 (
     echo Error: cl.exe not found in PATH or common MSVC locations
     echo This usually means the MSVC compiler tools are not properly installed.
@@ -186,6 +186,19 @@ if %FOUND_CL% equ 0 (
     exit /b 1
 ) else (
     echo SUCCESS: cl.exe found and available
+    :: Add MSVC tools to PATH if we found them in non-standard locations
+    if defined CL_PATH (
+        echo Adding MSVC tools to PATH: %CL_PATH%
+        set "PATH=%CL_PATH%;%PATH%"
+        :: Also set persistent PATH for future sessions
+        for /f "tokens=2*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "CURRENT_USER_PATH=%%b"
+        if not defined CURRENT_USER_PATH set "CURRENT_USER_PATH="
+        echo %CURRENT_USER_PATH% | findstr /C:"%CL_PATH%" >nul
+        if %errorLevel% neq 0 (
+            echo Adding to user PATH permanently...
+            setx PATH "%CL_PATH%;%CURRENT_USER_PATH%" >nul
+        )
+    )
 )
 
 if %FOUND_LINK% equ 0 (
@@ -200,16 +213,25 @@ if %FOUND_LINK% equ 0 (
 
 echo MSVC compiler (cl.exe): 
 if defined CL_PATH (
-    "%CL_PATH%\cl.exe" 2>&1 | findstr "Microsoft"
+    echo Using cl.exe from: %CL_PATH%
+    echo Compiler version:
+    "%CL_PATH%\cl.exe" 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
 ) else (
-    cl.exe 2>&1 | findstr "Microsoft"
+    echo Using cl.exe from PATH
+    echo Compiler version:
+    cl.exe 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
 )
 
+echo.
 echo MSVC linker (link.exe):
 if defined LINK_PATH (
-    "%LINK_PATH%\link.exe" 2>&1 | findstr "Microsoft"
+    echo Using link.exe from: %LINK_PATH%
+    echo Linker version:
+    "%LINK_PATH%\link.exe" 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
 ) else (
-    link.exe 2>&1 | findstr "Microsoft"
+    echo Using link.exe from PATH
+    echo Linker version:
+    link.exe 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
 )
 
 :: Set up Rust toolchain for MSVC

@@ -190,18 +190,20 @@ if %FOUND_CL% equ 0 (
     if defined CL_PATH (
         echo Adding MSVC tools to PATH: %CL_PATH%
         set "PATH=%CL_PATH%;%PATH%"
-        :: Also set persistent PATH for future sessions
-        reg query "HKCU\Environment" /v PATH >nul 2>&1
-        if %errorLevel% equ 0 (
-            for /f "skip=2 tokens=2*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "CURRENT_USER_PATH=%%b"
-        ) else (
-            set "CURRENT_USER_PATH="
+        :: Also add LINK_PATH if it's different from CL_PATH
+        if defined LINK_PATH (
+            if not "%LINK_PATH%"=="%CL_PATH%" (
+                echo Adding MSVC linker tools to PATH: %LINK_PATH%
+                set "PATH=%LINK_PATH%;%PATH%"
+            )
         )
-        if not defined CURRENT_USER_PATH set "CURRENT_USER_PATH="
-        echo %CURRENT_USER_PATH% | findstr /C:"%CL_PATH%" >nul
-        if %errorLevel% neq 0 (
-            echo Adding to user PATH permanently...
-            setx PATH "%CL_PATH%;%CURRENT_USER_PATH%" >nul
+        :: Set persistent PATH for future sessions (simplified approach)
+        echo Adding to user PATH permanently...
+        setx PATH "%CL_PATH%;%PATH%" >nul 2>&1
+        if defined LINK_PATH (
+            if not "%LINK_PATH%"=="%CL_PATH%" (
+                setx PATH "%LINK_PATH%;%PATH%" >nul 2>&1
+            )
         )
     )
 )
@@ -214,6 +216,16 @@ if %FOUND_LINK% equ 0 (
     exit /b 1
 ) else (
     echo SUCCESS: link.exe found and available
+    :: Add LINK_PATH to PATH if it's defined and not already added
+    if defined LINK_PATH (
+        if not defined CL_PATH (
+            echo Adding MSVC linker tools to PATH: %LINK_PATH%
+            set "PATH=%LINK_PATH%;%PATH%"
+            :: Set persistent PATH for future sessions
+            echo Adding linker to user PATH permanently...
+            setx PATH "%LINK_PATH%;%PATH%" >nul 2>&1
+        )
+    )
 )
 
 echo MSVC compiler (cl.exe): 

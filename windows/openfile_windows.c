@@ -5,10 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <shlobj.h>
-#include <shobjidl.h>
-#include <comdef.h>
-#include <atlbase.h>
 
 // Function to check if QuickLook for Windows is installed
 BOOL isQuickLookInstalled() {
@@ -63,27 +59,41 @@ BOOL launchQuickLook(const wchar_t* filePath) {
     return FALSE;
 }
 
-// Function to create a simple preview window using Windows API
+// Simple message handler for preview window
 LRESULT CALLBACK PreviewWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
         case WM_KEYDOWN:
             if (wParam == VK_ESCAPE || wParam == VK_SPACE) {
-                PostQuitMessage(0);
+                DestroyWindow(hwnd);
                 return 0;
             }
             break;
         case WM_CLOSE:
-            PostQuitMessage(0);
+            DestroyWindow(hwnd);
             return 0;
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            
+            // Simple text display
+            RECT rect;
+            GetClientRect(hwnd, &rect);
+            DrawTextW(hdc, L"File Preview\n\nPress ESC or SPACE to close", -1, &rect, 
+                     DT_CENTER | DT_VCENTER | DT_WORDBREAK);
+            
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
     }
     return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
 // Function to show a basic preview window
 BOOL showPreviewWindow(const wchar_t* filePath, BOOL fullscreen) {
+    // Register window class
     WNDCLASSW wc = {0};
     wc.lpfnWndProc = PreviewWindowProc;
     wc.hInstance = GetModuleHandle(NULL);
@@ -91,16 +101,16 @@ BOOL showPreviewWindow(const wchar_t* filePath, BOOL fullscreen) {
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     
-    if (!RegisterClassW(&wc)) {
-        return FALSE;
-    }
+    RegisterClassW(&wc); // Ignore if already registered
     
+    // Calculate window size and position
     DWORD style = fullscreen ? WS_POPUP : (WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX);
     int width = fullscreen ? GetSystemMetrics(SM_CXSCREEN) : 800;
     int height = fullscreen ? GetSystemMetrics(SM_CYSCREEN) : 600;
     int x = fullscreen ? 0 : (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     int y = fullscreen ? 0 : (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
     
+    // Create window
     HWND hwnd = CreateWindowW(L"QuickPreviewWindow", L"Quick Preview", style,
         x, y, width, height, NULL, NULL, GetModuleHandle(NULL), NULL);
     
@@ -111,19 +121,15 @@ BOOL showPreviewWindow(const wchar_t* filePath, BOOL fullscreen) {
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
     
-    // Try to use Windows Preview Handler
-    CoInitialize(NULL);
-    
-    // Message loop
-    MSG msg;
     printf("Preview window opened. Press ESC or SPACE to close, or close the window.\n");
     
+    // Simple message loop
+    MSG msg;
     while (GetMessage(&msg, NULL, 0, 0)) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
     
-    CoUninitialize();
     return TRUE;
 }
 
@@ -212,14 +218,6 @@ int openFiles(int argc, const char **argv, int fullscreen) {
     }
     
     return 0; // Success
-}
-
-// Alternative implementation using Windows Runtime (for modern Windows 10/11)
-int openFilesWithWindowsRuntime(int argc, const char **argv, int fullscreen) {
-    // This would require linking against Windows Runtime libraries
-    // and using C++/WinRT or similar for a more modern implementation
-    // For now, fall back to the basic implementation
-    return openFiles(argc, argv, fullscreen);
 }
 
 #endif // _WIN32

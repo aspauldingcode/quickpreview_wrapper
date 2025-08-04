@@ -82,7 +82,7 @@ echo Calling vcvarsall.bat...
 call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" %HOST_ARCH%_x64
 
 :: Add a small delay to ensure environment variables are set
-timeout /t 2 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
 
 :: Check if we have the required tools in common locations
 set "FOUND_CL=0"
@@ -97,15 +97,23 @@ if %errorLevel% equ 0 (
     echo cl.exe not found in PATH, checking common locations...
     
     :: Check common MSVC installation paths
-    for %%p in (
-        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx64\x64\cl.exe"
-        "%VS_PATH%\VC\Tools\MSVC\*\bin\HostARM64\x64\cl.exe"
-        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx86\x64\cl.exe"
-    ) do (
-        if exist "%%p" (
+    for /d %%v in ("%VS_PATH%\VC\Tools\MSVC\*") do (
+        if exist "%%v\bin\Hostx64\x64\cl.exe" (
             set "FOUND_CL=1"
-            for %%f in ("%%p") do set "CL_PATH=%%~dpf"
-            echo Found cl.exe at: !CL_PATH!
+            set "CL_PATH=%%v\bin\Hostx64\x64"
+            echo Found cl.exe at: %%v\bin\Hostx64\x64\cl.exe
+            goto :found_cl
+        )
+        if exist "%%v\bin\HostARM64\x64\cl.exe" (
+            set "FOUND_CL=1"
+            set "CL_PATH=%%v\bin\HostARM64\x64"
+            echo Found cl.exe at: %%v\bin\HostARM64\x64\cl.exe
+            goto :found_cl
+        )
+        if exist "%%v\bin\Hostx86\x64\cl.exe" (
+            set "FOUND_CL=1"
+            set "CL_PATH=%%v\bin\Hostx86\x64"
+            echo Found cl.exe at: %%v\bin\Hostx86\x64\cl.exe
             goto :found_cl
         )
     )
@@ -121,15 +129,23 @@ if %errorLevel% equ 0 (
     echo link.exe not found in PATH, checking common locations...
     
     :: Check common MSVC installation paths for link.exe
-    for %%p in (
-        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx64\x64\link.exe"
-        "%VS_PATH%\VC\Tools\MSVC\*\bin\HostARM64\x64\link.exe"
-        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx86\x64\link.exe"
-    ) do (
-        if exist "%%p" (
+    for /d %%v in ("%VS_PATH%\VC\Tools\MSVC\*") do (
+        if exist "%%v\bin\Hostx64\x64\link.exe" (
             set "FOUND_LINK=1"
-            for %%f in ("%%p") do set "LINK_PATH=%%~dpf"
-            echo Found link.exe at: !LINK_PATH!
+            set "LINK_PATH=%%v\bin\Hostx64\x64"
+            echo Found link.exe at: %%v\bin\Hostx64\x64\link.exe
+            goto :found_link
+        )
+        if exist "%%v\bin\HostARM64\x64\link.exe" (
+            set "FOUND_LINK=1"
+            set "LINK_PATH=%%v\bin\HostARM64\x64"
+            echo Found link.exe at: %%v\bin\HostARM64\x64\link.exe
+            goto :found_link
+        )
+        if exist "%%v\bin\Hostx86\x64\link.exe" (
+            set "FOUND_LINK=1"
+            set "LINK_PATH=%%v\bin\Hostx86\x64"
+            echo Found link.exe at: %%v\bin\Hostx86\x64\link.exe
             goto :found_link
         )
     )
@@ -141,6 +157,29 @@ if %errorLevel% equ 0 (
 if %FOUND_CL% equ 0 (
     echo Error: cl.exe not found in PATH or common MSVC locations
     echo This usually means the MSVC compiler tools are not properly installed.
+    echo.
+    echo Debugging information:
+    echo VS_PATH: %VS_PATH%
+    echo HOST_ARCH: %HOST_ARCH%
+    echo.
+    echo Checking if MSVC directories exist:
+    if exist "%VS_PATH%\VC\Tools\MSVC\" (
+        echo MSVC Tools directory exists, listing versions:
+        dir "%VS_PATH%\VC\Tools\MSVC\" /b
+        echo.
+        echo Checking for cl.exe in latest version:
+        for /f %%i in ('dir "%VS_PATH%\VC\Tools\MSVC\" /b /o-n') do (
+            echo Checking: %VS_PATH%\VC\Tools\MSVC\%%i\bin\HostARM64\x64\cl.exe
+            if exist "%VS_PATH%\VC\Tools\MSVC\%%i\bin\HostARM64\x64\cl.exe" (
+                echo Found cl.exe in %%i version!
+            )
+            goto :break_loop
+        )
+        :break_loop
+    ) else (
+        echo MSVC Tools directory does not exist at: %VS_PATH%\VC\Tools\MSVC\
+    )
+    echo.
     echo Please install Visual Studio Build Tools with C++ development tools.
     echo Exiting with error code 1.
     exit /b 1

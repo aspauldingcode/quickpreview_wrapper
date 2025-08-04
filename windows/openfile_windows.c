@@ -41,7 +41,7 @@ BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
 
     wchar_t cmdLine[MAX_PATH * 3];
     if (swprintf_s(cmdLine, MAX_PATH * 3, 
-        L"\"%s\" /preview:\"%s\"%s", 
+        L"\"%s\" \"%s\"%s", 
         qlPath, filePath, 
         fullscreen ? L" /fullscreen" : L"") < 0) {
         fprintf(stderr, "Error: Command line too long\n");

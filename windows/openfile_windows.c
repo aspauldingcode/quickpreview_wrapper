@@ -74,7 +74,42 @@ BOOL launchQuickLook(const wchar_t* filePath) {
         return FALSE;
     }
     
-    // Build command line with proper quoting
+    // Check if QuickLook is already running
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE) {
+        return FALSE;
+    }
+    
+    PROCESSENTRY32W pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32W);
+    
+    BOOL isRunning = FALSE;
+    if (Process32FirstW(hSnapshot, &pe32)) {
+        do {
+            if (wcscmp(pe32.szExeFile, L"QuickLook.exe") == 0) {
+                isRunning = TRUE;
+                break;
+            }
+        } while (Process32NextW(hSnapshot, &pe32));
+    }
+    CloseHandle(hSnapshot);
+    
+    if (!isRunning) {
+        // Launch QuickLook.exe without arguments
+        swprintf_s(commandLine, MAX_PATH * 2, L"\"%s\"", quickLookPath);
+        
+        STARTUPINFOW si = {0};
+        PROCESS_INFORMATION pi = {0};
+        si.cb = sizeof(si);
+        
+        if (CreateProcessW(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            Sleep(2000); // Wait 2 seconds for it to start
+        }
+    }
+    
+    // Now launch with the file path to preview
     swprintf_s(commandLine, MAX_PATH * 2, L"\"%s\" \"%s\"", quickLookPath, filePath);
     
     STARTUPINFOW si = {0};

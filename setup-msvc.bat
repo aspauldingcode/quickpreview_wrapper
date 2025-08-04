@@ -82,7 +82,8 @@ echo Calling vcvarsall.bat...
 call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" %HOST_ARCH%_x64
 
 :: Add a small delay to ensure environment variables are set
-ping 127.0.0.1 -n 3 >nul
+:: Using a simple loop instead of ping/timeout for maximum compatibility
+for /l %%i in (1,1,1000000) do rem
 
 :: Check if we have the required tools in common locations
 set "FOUND_CL=0"
@@ -198,10 +199,18 @@ if %FOUND_LINK% equ 0 (
 )
 
 echo MSVC compiler (cl.exe): 
-cl.exe 2>&1 | findstr "Microsoft"
+if defined CL_PATH (
+    "%CL_PATH%\cl.exe" 2>&1 | findstr "Microsoft"
+) else (
+    cl.exe 2>&1 | findstr "Microsoft"
+)
 
 echo MSVC linker (link.exe):
-link.exe 2>&1 | findstr "Microsoft"
+if defined LINK_PATH (
+    "%LINK_PATH%\link.exe" 2>&1 | findstr "Microsoft"
+) else (
+    link.exe 2>&1 | findstr "Microsoft"
+)
 
 :: Set up Rust toolchain for MSVC
 echo.
@@ -256,27 +265,51 @@ echo.
 echo Setting environment variables for cc-rs...
 
 :: Set MSVC-specific environment variables
-set CC_x86_64_pc_windows_msvc=cl.exe
-set CXX_x86_64_pc_windows_msvc=cl.exe
-set AR_x86_64_pc_windows_msvc=lib.exe
-set LINKER_x86_64_pc_windows_msvc=link.exe
+if defined CL_PATH (
+    set CC_x86_64_pc_windows_msvc="%CL_PATH%\cl.exe"
+    set CXX_x86_64_pc_windows_msvc="%CL_PATH%\cl.exe"
+    set AR_x86_64_pc_windows_msvc="%CL_PATH%\lib.exe"
+    set LINKER_x86_64_pc_windows_msvc="%LINK_PATH%\link.exe"
+    
+    set CC_aarch64_pc_windows_msvc="%CL_PATH%\cl.exe"
+    set CXX_aarch64_pc_windows_msvc="%CL_PATH%\cl.exe"  
+    set AR_aarch64_pc_windows_msvc="%CL_PATH%\lib.exe"
+    set LINKER_aarch64_pc_windows_msvc="%LINK_PATH%\link.exe"
+) else (
+    set CC_x86_64_pc_windows_msvc=cl.exe
+    set CXX_x86_64_pc_windows_msvc=cl.exe
+    set AR_x86_64_pc_windows_msvc=lib.exe
+    set LINKER_x86_64_pc_windows_msvc=link.exe
 
-set CC_aarch64_pc_windows_msvc=cl.exe
-set CXX_aarch64_pc_windows_msvc=cl.exe  
-set AR_aarch64_pc_windows_msvc=lib.exe
-set LINKER_aarch64_pc_windows_msvc=link.exe
+    set CC_aarch64_pc_windows_msvc=cl.exe
+    set CXX_aarch64_pc_windows_msvc=cl.exe  
+    set AR_aarch64_pc_windows_msvc=lib.exe
+    set LINKER_aarch64_pc_windows_msvc=link.exe
+)
 
 :: Export environment variables to user environment (persistent)
 echo Setting persistent environment variables...
-setx CC_x86_64_pc_windows_msvc "cl.exe" >nul
-setx CXX_x86_64_pc_windows_msvc "cl.exe" >nul
-setx AR_x86_64_pc_windows_msvc "lib.exe" >nul
-setx LINKER_x86_64_pc_windows_msvc "link.exe" >nul
+if defined CL_PATH (
+    setx CC_x86_64_pc_windows_msvc "%CL_PATH%\cl.exe" >nul
+    setx CXX_x86_64_pc_windows_msvc "%CL_PATH%\cl.exe" >nul
+    setx AR_x86_64_pc_windows_msvc "%CL_PATH%\lib.exe" >nul
+    setx LINKER_x86_64_pc_windows_msvc "%LINK_PATH%\link.exe" >nul
 
-setx CC_aarch64_pc_windows_msvc "cl.exe" >nul
-setx CXX_aarch64_pc_windows_msvc "cl.exe" >nul
-setx AR_aarch64_pc_windows_msvc "lib.exe" >nul  
-setx LINKER_aarch64_pc_windows_msvc "link.exe" >nul
+    setx CC_aarch64_pc_windows_msvc "%CL_PATH%\cl.exe" >nul
+    setx CXX_aarch64_pc_windows_msvc "%CL_PATH%\cl.exe" >nul
+    setx AR_aarch64_pc_windows_msvc "%CL_PATH%\lib.exe" >nul  
+    setx LINKER_aarch64_pc_windows_msvc "%LINK_PATH%\link.exe" >nul
+) else (
+    setx CC_x86_64_pc_windows_msvc "cl.exe" >nul
+    setx CXX_x86_64_pc_windows_msvc "cl.exe" >nul
+    setx AR_x86_64_pc_windows_msvc "lib.exe" >nul
+    setx LINKER_x86_64_pc_windows_msvc "link.exe" >nul
+
+    setx CC_aarch64_pc_windows_msvc "cl.exe" >nul
+    setx CXX_aarch64_pc_windows_msvc "cl.exe" >nul
+    setx AR_aarch64_pc_windows_msvc "lib.exe" >nul  
+    setx LINKER_aarch64_pc_windows_msvc "link.exe" >nul
+)
 
 :: Test the setup by building the project
 echo.

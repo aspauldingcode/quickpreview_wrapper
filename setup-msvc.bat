@@ -395,26 +395,66 @@ if defined CL_PATH (
     setx LINKER_aarch64_pc_windows_msvc "link.exe" >nul 2>&1
 )
 
-:: Test the setup by building the project
+:: Create a batch file to open Native Tools Command Prompt in project directory
 echo.
-echo ============================================
-echo Testing MSVC setup by building the project
-echo ============================================
+echo Creating build helper script...
+set "PROJECT_DIR=%CD%"
+set "PROJECT_DIR_CMD=%PROJECT_DIR:\=\%"
 
-if exist "Cargo.toml" (
-    echo Building project with MSVC...
-    cargo build --target x86_64-pc-windows-msvc
-    if %errorLevel% equ 0 (
-        echo SUCCESS: Project built successfully with MSVC!
-        echo.
-        echo You can now build with: cargo build --target x86_64-pc-windows-msvc
-        echo For ARM64: cargo build --target aarch64-pc-windows-msvc
-    ) else (
-        echo Build failed. Check the error messages above.
+:: Create a batch file that opens Native Tools Command Prompt in the project directory
+(
+echo @echo off
+echo echo Opening Native Tools Command Prompt for VS in project directory...
+echo echo Project directory: %PROJECT_DIR%
+echo echo.
+echo echo Available commands:
+echo echo   cargo build --release          ^(Release build^)
+echo echo   cargo build                    ^(Debug build^)
+echo echo   cargo run                      ^(Build and run^)
+echo echo   cl /? ^| more                   ^(MSVC compiler help^)
+echo echo   link /?                        ^(MSVC linker help^)
+echo echo.
+echo cd /d "%PROJECT_DIR%"
+echo cmd /k
+) > open-native-tools.bat
+
+:: Test if we can find the Native Tools Command Prompt
+set "NATIVE_TOOLS_CMD="
+if defined VS_PATH (
+    if exist "%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat" (
+        set "NATIVE_TOOLS_CMD=%VS_PATH%\VC\Auxiliary\Build\vcvars64.bat"
     )
+)
+
+if defined NATIVE_TOOLS_CMD (
+    echo.
+    echo ============================================
+    echo Opening Native Tools Command Prompt
+    echo ============================================
+    echo.
+    echo This will open a new cmd window with MSVC tools available.
+    echo The window will automatically navigate to your project directory:
+    echo %PROJECT_DIR%
+    echo.
+    echo In the new cmd window, you can run:
+    echo   cargo build --release
+    echo   cargo build
+    echo   cargo run
+    echo.
+    echo Opening Native Tools Command Prompt now...
+    
+    :: Open Native Tools Command Prompt and navigate to project directory
+    start "Native Tools Command Prompt" cmd /k ""%NATIVE_TOOLS_CMD%" && cd /d "%PROJECT_DIR%" && echo Ready to build! Try: cargo build --release"
+    
+    echo.
+    echo Native Tools Command Prompt opened in a new window.
+    echo You can now build your Rust project with MSVC tools!
 ) else (
-    echo No Cargo.toml found in current directory.
-    echo Navigate to your Rust project directory and run this script.
+    echo Warning: Could not find Native Tools Command Prompt.
+    echo You can manually open it from Start Menu and navigate to:
+    echo %PROJECT_DIR%
+    echo.
+    echo Then run: cargo build --release
 )
 
 echo.
@@ -422,16 +462,36 @@ echo ============================================
 echo MSVC Setup Complete!
 echo ============================================
 echo.
-echo Environment files created:
-echo - msvc-env.bat (for Command Prompt)
-echo - msvc-env.ps1 (for PowerShell)
+echo ✅ What was configured:
+echo - Found and verified MSVC tools (cl.exe, link.exe)
+echo - Added MSVC tools to PATH
+echo - Set environment variables for Rust/Cargo
 echo.
-echo To use MSVC environment in new sessions:
-echo - Command Prompt: call msvc-env.bat
-echo - PowerShell: .\msvc-env.ps1
+echo 🚀 How to build your project:
 echo.
-echo Rust targets configured:
-echo - x86_64-pc-windows-msvc (primary)
-echo - aarch64-pc-windows-msvc (ARM64)
+echo METHOD 1 (Recommended): Use Native Tools Command Prompt
+echo   1. Open "Native Tools Command Prompt for VS" from Start Menu
+echo   2. Navigate to: %CD%
+echo   3. Run: cargo build --release
+echo.
+echo METHOD 2: Use the helper script created
+echo   - Run: open-native-tools.bat
+echo   - This opens Native Tools Command Prompt in your project directory
+echo.
+echo 📁 Project directory (for cmd navigation):
+echo   %CD%
+echo   (In cmd: cd /d "%CD%")
+echo.
+echo 🔧 Available commands in Native Tools Command Prompt:
+echo   cargo build --release    (Release build)
+echo   cargo build              (Debug build) 
+echo   cargo run                (Build and run)
+echo   cl /?                    (MSVC compiler help)
+echo   link /?                  (MSVC linker help)
+echo.
+echo 💡 Why Native Tools Command Prompt?
+echo   - It's the proper cmd.exe environment with MSVC tools
+echo   - PowerShell syntax (cd ~, ls, cat) won't work there
+echo   - Use cmd syntax (cd %USERPROFILE%, dir, type) instead
 echo.
 echo Setup completed successfully!

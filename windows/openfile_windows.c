@@ -28,12 +28,14 @@ static BOOL getQuickLookPath(wchar_t* path) {
 static BOOL getQuickLookPath(wchar_t* path);
 
 BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
+    if (!filePath) return FALSE;
+
     wchar_t qlPath[MAX_PATH];
     if (!getQuickLookPath(qlPath)) return FALSE;
 
     wchar_t cmdLine[MAX_PATH * 3];
     swprintf_s(cmdLine, MAX_PATH * 3, 
-        L"\"%s\" /standby /preview:\"%s\"%s", 
+        L"\"%s\" /preview:\"%s\"%s", 
         qlPath, filePath, 
         fullscreen ? L" /fullscreen" : L"");
     cmdLine[MAX_PATH * 3 - 1] = L'\0'; // Ensure null-termination
@@ -51,10 +53,12 @@ BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
 
 // Simplified Windows file opener
 int openFiles(int argc, const char **argv, int fullscreen) {
-    if (argc < 1 || !argv) return 1;
+    if (argc < 2 || !argv) return 1;  // Need at least one file path argument
 
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {  // Start from 1 to skip program name
         const char* utf8Path = argv[i];
+        if (!utf8Path) continue;
+
         int wideLen = MultiByteToWideChar(CP_UTF8, 0, utf8Path, -1, NULL, 0);
         if (wideLen == 0) continue;
 

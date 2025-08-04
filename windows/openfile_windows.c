@@ -8,24 +8,31 @@
 
 // Function to check if QuickLook for Windows is installed
 BOOL isQuickLookInstalled() {
-    HKEY hKey;
-    LONG result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
-        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{B8E5C8C2-2E5C-4F8E-8F8E-8F8E8F8E8F8E}_is1", 
-        0, KEY_READ, &hKey);
+    // Check common installation paths for QuickLook
+    wchar_t quickLookPath[MAX_PATH];
     
-    if (result == ERROR_SUCCESS) {
-        RegCloseKey(hKey);
-        return TRUE;
+    // Try user-specific installation path first
+    if (ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\Programs\\QuickLook\\QuickLook.exe", quickLookPath, MAX_PATH)) {
+        DWORD fileAttr = GetFileAttributesW(quickLookPath);
+        if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
+            return TRUE;
+        }
     }
     
-    // Also check for PowerToys which includes a QuickLook-like feature
-    result = RegOpenKeyExW(HKEY_LOCAL_MACHINE, 
-        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\PowerToys", 
-        0, KEY_READ, &hKey);
+    // Try system-wide installation path
+    if (ExpandEnvironmentStringsW(L"%PROGRAMFILES%\\QuickLook\\QuickLook.exe", quickLookPath, MAX_PATH)) {
+        DWORD fileAttr = GetFileAttributesW(quickLookPath);
+        if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
+            return TRUE;
+        }
+    }
     
-    if (result == ERROR_SUCCESS) {
-        RegCloseKey(hKey);
-        return TRUE;
+    // Try Program Files (x86)
+    if (ExpandEnvironmentStringsW(L"%PROGRAMFILES(X86)%\\QuickLook\\QuickLook.exe", quickLookPath, MAX_PATH)) {
+        DWORD fileAttr = GetFileAttributesW(quickLookPath);
+        if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
+            return TRUE;
+        }
     }
     
     return FALSE;
@@ -33,24 +40,48 @@ BOOL isQuickLookInstalled() {
 
 // Function to launch QuickLook for Windows
 BOOL launchQuickLook(const wchar_t* filePath) {
-    // Try QuickLook for Windows first
-    wchar_t quickLookCmd[2048];
-    swprintf_s(quickLookCmd, 2048, L"QuickLook.exe \"%s\"", filePath);
+    wchar_t quickLookPath[MAX_PATH];
+    wchar_t commandLine[MAX_PATH * 2];
+    
+    // Try to find QuickLook.exe in common installation paths
+    BOOL found = FALSE;
+    
+    // Try user-specific installation path first
+    if (ExpandEnvironmentStringsW(L"%LOCALAPPDATA%\\Programs\\QuickLook\\QuickLook.exe", quickLookPath, MAX_PATH)) {
+        DWORD fileAttr = GetFileAttributesW(quickLookPath);
+        if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
+            found = TRUE;
+        }
+    }
+    
+    // Try system-wide installation path
+    if (!found && ExpandEnvironmentStringsW(L"%PROGRAMFILES%\\QuickLook\\QuickLook.exe", quickLookPath, MAX_PATH)) {
+        DWORD fileAttr = GetFileAttributesW(quickLookPath);
+        if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
+            found = TRUE;
+        }
+    }
+    
+    // Try Program Files (x86)
+    if (!found && ExpandEnvironmentStringsW(L"%PROGRAMFILES(X86)%\\QuickLook\\QuickLook.exe", quickLookPath, MAX_PATH)) {
+        DWORD fileAttr = GetFileAttributesW(quickLookPath);
+        if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
+            found = TRUE;
+        }
+    }
+    
+    if (!found) {
+        return FALSE;
+    }
+    
+    // Build command line with proper quoting
+    swprintf_s(commandLine, MAX_PATH * 2, L"\"%s\" \"%s\"", quickLookPath, filePath);
     
     STARTUPINFOW si = {0};
     PROCESS_INFORMATION pi = {0};
     si.cb = sizeof(si);
     
-    if (CreateProcessW(NULL, quickLookCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        return TRUE;
-    }
-    
-    // Try PowerToys File Preview
-    swprintf_s(quickLookCmd, 2048, L"PowerToys.exe --preview \"%s\"", filePath);
-    
-    if (CreateProcessW(NULL, quickLookCmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
+    if (CreateProcessW(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         return TRUE;

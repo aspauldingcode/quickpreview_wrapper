@@ -191,7 +191,12 @@ if %FOUND_CL% equ 0 (
         echo Adding MSVC tools to PATH: %CL_PATH%
         set "PATH=%CL_PATH%;%PATH%"
         :: Also set persistent PATH for future sessions
-        for /f "tokens=2*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "CURRENT_USER_PATH=%%b"
+        reg query "HKCU\Environment" /v PATH >nul 2>&1
+        if %errorLevel% equ 0 (
+            for /f "skip=2 tokens=2*" %%a in ('reg query "HKCU\Environment" /v PATH 2^>nul') do set "CURRENT_USER_PATH=%%b"
+        ) else (
+            set "CURRENT_USER_PATH="
+        )
         if not defined CURRENT_USER_PATH set "CURRENT_USER_PATH="
         echo %CURRENT_USER_PATH% | findstr /C:"%CL_PATH%" >nul
         if %errorLevel% neq 0 (

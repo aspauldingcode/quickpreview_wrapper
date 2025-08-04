@@ -45,54 +45,6 @@ BOOL launchQuickLook(const wchar_t* filePath, BOOL fullscreen) {
     return FALSE;
 }
 
-// Function to get the path to QuickLook.exe
-BOOL getQuickLookPath(wchar_t* quickLookPath) {
-    const wchar_t* paths[] = {
-        L"%LOCALAPPDATA%\\Programs\\QuickLook\\QuickLook.exe",
-        L"%PROGRAMFILES%\\QuickLook\\QuickLook.exe",
-        L"%PROGRAMFILES(X86)%\\QuickLook\\QuickLook.exe"
-    };
-    
-    for (int i = 0; i < sizeof(paths)/sizeof(paths[0]); i++) {
-        if (ExpandEnvironmentStringsW(paths[i], quickLookPath, MAX_PATH)) {
-            DWORD fileAttr = GetFileAttributesW(quickLookPath);
-            if (fileAttr != INVALID_FILE_ATTRIBUTES && !(fileAttr & FILE_ATTRIBUTE_DIRECTORY)) {
-                return TRUE;
-            }
-        }
-    }
-    
-    return FALSE;
-}
-
-// Function to preview files with QuickLook
-BOOL previewWithQuickLook(const wchar_t* filePath) {
-    wchar_t quickLookPath[MAX_PATH];
-    if (!getQuickLookPath(quickLookPath)) {
-        return FALSE;
-    }
-    
-    if (!ensureQuickLookRunning(quickLookPath)) {
-        return FALSE;
-    }
-    
-    // Build command line to tell QuickLook to preview the file
-    wchar_t commandLine[MAX_PATH * 2];
-    swprintf_s(commandLine, MAX_PATH * 2, L"\"%s\" /standby /preview: \"%s\"", quickLookPath, filePath);
-    
-    STARTUPINFOW si = {0};
-    PROCESS_INFORMATION pi = {0};
-    si.cb = sizeof(si);
-    
-    if (CreateProcessW(NULL, commandLine, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        return TRUE;
-    }
-    
-    return FALSE;
-}
-
 // Simplified Windows file opener
 int openFiles(int argc, const char **argv, int fullscreen) {
     if (argc < 1 || !argv) return 1;

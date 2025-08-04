@@ -214,24 +214,24 @@ if %FOUND_LINK% equ 0 (
 echo MSVC compiler (cl.exe): 
 if defined CL_PATH (
     echo Using cl.exe from: %CL_PATH%
-    echo Compiler version:
-    "%CL_PATH%\cl.exe" 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
+    echo Compiler version check...
+    "%CL_PATH%\cl.exe" >nul 2>&1 && echo Compiler is working || echo Compiler test failed
 ) else (
     echo Using cl.exe from PATH
-    echo Compiler version:
-    cl.exe 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
+    echo Compiler version check...
+    cl.exe >nul 2>&1 && echo Compiler is working || echo Compiler test failed
 )
 
 echo.
 echo MSVC linker (link.exe):
 if defined LINK_PATH (
     echo Using link.exe from: %LINK_PATH%
-    echo Linker version:
-    "%LINK_PATH%\link.exe" 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
+    echo Linker version check...
+    "%LINK_PATH%\link.exe" >nul 2>&1 && echo Linker is working || echo Linker test failed
 ) else (
     echo Using link.exe from PATH
-    echo Linker version:
-    link.exe 2>&1 | findstr /C:"Microsoft" /C:"Version" | head -1
+    echo Linker version check...
+    link.exe >nul 2>&1 && echo Linker is working || echo Linker test failed
 )
 
 :: Set up Rust toolchain for MSVC

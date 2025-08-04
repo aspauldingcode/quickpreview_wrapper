@@ -70,9 +70,9 @@ fn open_preview(files: &[String], fullscreen: bool) {
 
 #[cfg(target_os = "windows")]
 fn open_preview(files: &[String], fullscreen: bool) {
-    for file in files {
-        if let Err(e) = windows::open_quicklook(file, fullscreen) {
-            eprintln!("Error opening QuickLook for {}: {}", file, e);
-        }
+    // Use the multiple files function for better efficiency
+    let file_refs: Vec<&str> = files.iter().map(|s| s.as_str()).collect();
+    if let Err(e) = windows::open_quicklook_multiple(&file_refs, fullscreen) {
+        eprintln!("Error opening QuickLook for files: {}", e);
     }
 }

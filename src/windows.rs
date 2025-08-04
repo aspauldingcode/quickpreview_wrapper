@@ -1,6 +1,5 @@
-use std::ffi::{CString, CStr};
+use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
-use std::ptr;
 
 // External C function declaration
 extern "C" {

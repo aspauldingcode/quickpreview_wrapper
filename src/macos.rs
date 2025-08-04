@@ -2,7 +2,7 @@ use std::ffi::CString;
 use std::os::raw::{c_char, c_int};
 use std::process;
 
-#[link(name = "macos", kind = "dylib")]
+#[link(name = "quickpreview_wrapper", kind = "static")]
 extern "C" {
     fn openFiles(argc: c_int, argv: *const *const c_char, fullscreen: c_int) -> c_int;
 }

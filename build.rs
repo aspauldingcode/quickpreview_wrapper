@@ -17,17 +17,14 @@ fn main() {
         "macos" => {
             println!("cargo:warning=Building for macOS");
             build
-                .file("macos/macos.m")
-                .flag("-framework")
-                .flag("QuickLook")
-                .flag("-framework")
-                .flag("Foundation")
-                .flag("-framework")
-                .flag("CoreFoundation")
-                .flag("-framework")
-                .flag("AppKit")
-                .flag("-framework")
-                .flag("Quartz");
+                .file("macos/macos.m");
+            
+            // Link frameworks properly
+            println!("cargo:rustc-link-lib=framework=QuickLook");
+            println!("cargo:rustc-link-lib=framework=Foundation");
+            println!("cargo:rustc-link-lib=framework=CoreFoundation");
+            println!("cargo:rustc-link-lib=framework=AppKit");
+            println!("cargo:rustc-link-lib=framework=Quartz");
             
             println!("cargo:rerun-if-changed=macos/macos.m");
         },

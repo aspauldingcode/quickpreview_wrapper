@@ -20,8 +20,8 @@ echo Installing Visual Studio Build Tools...
 winget install --id Microsoft.VisualStudio.2022.BuildTools --silent --accept-package-agreements --accept-source-agreements --override "--wait --quiet --add Microsoft.VisualStudio.Workload.VCTools --add Microsoft.VisualStudio.Workload.MSBuildTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 --add Microsoft.VisualStudio.Component.VC.Tools.ARM64 --add Microsoft.VisualStudio.Component.Windows11SDK.22621 --add Microsoft.VisualStudio.Component.VC.CMake.Project"
 
 if %errorLevel% neq 0 (
-    echo Failed to install Visual Studio Build Tools with winget. Trying alternative...
-    echo You may need to install Visual Studio Build Tools manually from:
+    echo Failed to install Visual Studio Build Tools with winget. Continuing with existing installation...
+    echo Note: If you encounter issues, you may need to install Visual Studio Build Tools manually from:
     echo https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022
     echo.
     echo Required components:
@@ -30,7 +30,6 @@ if %errorLevel% neq 0 (
     echo - Windows 11 SDK
     echo - CMake tools for Visual Studio
     echo.
-    pause
 )
 
 :: Detect Visual Studio installation paths
@@ -57,7 +56,7 @@ for %%e in (BuildTools Enterprise Professional Community) do (
 
 echo Error: Could not find Visual Studio installation!
 echo Please ensure Visual Studio Build Tools 2019 or 2022 is installed.
-pause
+echo Exiting with error code 1.
 exit /b 1
 
 :found_vs
@@ -77,21 +76,86 @@ echo Host architecture: %HOST_ARCH%
 :: Set up environment for x64 target
 echo.
 echo Setting up MSVC environment for x64 target...
+
+:: First, try to call vcvarsall.bat and capture its output
+echo Calling vcvarsall.bat...
 call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" %HOST_ARCH%_x64
 
-:: Verify MSVC tools are available
+:: Add a small delay to ensure environment variables are set
+timeout /t 2 /nobreak >nul
+
+:: Check if we have the required tools in common locations
+set "FOUND_CL=0"
+set "FOUND_LINK=0"
+
+:: Check for cl.exe in PATH first
 where cl.exe >nul 2>&1
-if %errorLevel% neq 0 (
-    echo Error: cl.exe not found in PATH after setting up MSVC environment
-    pause
-    exit /b 1
+if %errorLevel% equ 0 (
+    set "FOUND_CL=1"
+    echo Found cl.exe in PATH
+) else (
+    echo cl.exe not found in PATH, checking common locations...
+    
+    :: Check common MSVC installation paths
+    for %%p in (
+        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx64\x64\cl.exe"
+        "%VS_PATH%\VC\Tools\MSVC\*\bin\HostARM64\x64\cl.exe"
+        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx86\x64\cl.exe"
+    ) do (
+        if exist "%%p" (
+            set "FOUND_CL=1"
+            for %%f in ("%%p") do set "CL_PATH=%%~dpf"
+            echo Found cl.exe at: !CL_PATH!
+            goto :found_cl
+        )
+    )
 )
 
-where link.exe >nul 2>&1  
-if %errorLevel% neq 0 (
-    echo Error: link.exe not found in PATH after setting up MSVC environment
-    pause
+:found_cl
+:: Check for link.exe
+where link.exe >nul 2>&1
+if %errorLevel% equ 0 (
+    set "FOUND_LINK=1"
+    echo Found link.exe in PATH
+) else (
+    echo link.exe not found in PATH, checking common locations...
+    
+    :: Check common MSVC installation paths for link.exe
+    for %%p in (
+        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx64\x64\link.exe"
+        "%VS_PATH%\VC\Tools\MSVC\*\bin\HostARM64\x64\link.exe"
+        "%VS_PATH%\VC\Tools\MSVC\*\bin\Hostx86\x64\link.exe"
+    ) do (
+        if exist "%%p" (
+            set "FOUND_LINK=1"
+            for %%f in ("%%p") do set "LINK_PATH=%%~dpf"
+            echo Found link.exe at: !LINK_PATH!
+            goto :found_link
+        )
+    )
+)
+
+:found_link
+
+:: Verify MSVC tools are available
+if %FOUND_CL% equ 0 (
+    echo Error: cl.exe not found in PATH or common MSVC locations
+    echo This usually means the MSVC compiler tools are not properly installed.
+    echo Please install Visual Studio Build Tools with C++ development tools.
+    echo Exiting with error code 1.
     exit /b 1
+) else (
+    echo SUCCESS: cl.exe found and available
+)
+
+if %FOUND_LINK% equ 0 (
+    echo Error: link.exe not found in PATH or common MSVC locations  
+    echo This usually means the MSVC linker tools are not properly installed.
+    echo Please install Visual Studio Build Tools with C++ development tools.
+    echo Exiting with error code 1.
+    exit /b 1
+) else (
+    echo SUCCESS: link.exe found and available
 )
 
 echo MSVC compiler (cl.exe): 
@@ -214,4 +278,4 @@ echo Rust targets configured:
 echo - x86_64-pc-windows-msvc (primary)
 echo - aarch64-pc-windows-msvc (ARM64)
 echo.
-pause 
+echo Setup completed successfully!
